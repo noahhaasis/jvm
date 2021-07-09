@@ -126,7 +126,7 @@ typedef struct {
 typedef struct {
     u2 attribute_name_index;
     u4 attribute_length;
-    u1 info[];
+    u1 *info;
     /* u1 info[attribute_length]; */
 } attribute_info;
 
@@ -135,7 +135,7 @@ typedef struct {
     u2             name_index;
     u2             descriptor_index;
     u2             attributes_count;
-    attribute_info attributes[];
+    attribute_info *attributes;
     /* attribute_info attributes[attributes_count]; */
 } method_info;
 
@@ -144,7 +144,7 @@ typedef struct {
     u2             name_index;
     u2             descriptor_index;
     u2             attributes_count;
-    attribute_info attributes[];
+    attribute_info *attributes;
     /* attribute_info attributes[attributes_count]; */
 } field_info;
 
@@ -182,6 +182,100 @@ typedef struct {
   /* attribute_info attributes[attributes_count]; */
 } ClassFile;
 
+attribute_info parse_attribute_info(u1 *data, int *out_byte_size /* How many bytes were parsed */) {
+  attribute_info info = (attribute_info) { };
+  info.attribute_name_index = *((u2 *) data);
+  info.attribute_length = *((u4 *) (data + 2));
+
+  int offset = 6;
+
+  if (info.attribute_length == 0) {
+    *out_byte_size = offset;
+    info.info = NULL;
+    return info;
+  }
+
+  info.info = malloc(info.attribute_length);
+  memcpy(info.info, data+offset, info.attribute_length);
+
+  offset += info.attribute_length;
+
+  *out_byte_size = offset;
+
+  return info;
+}
+
+method_info parse_method_info(u1 *data, int *out_byte_size /* How many bytes were parsed */) {
+  int offset = 0;
+  method_info info = (method_info) { };
+
+  info.access_flags = *((u2 *)data);
+  info.name_index = *(((u2 *)data)+1);
+  info.descriptor_index = *(((u2 *)data)+2);
+  info.attributes_count = *(((u2 *)data)+3);
+  offset = 8;
+
+  // TODO(Noah): Bug we're messing something up here. This causes attribute_length to be wrong
+  // in parse_attribute_info => SEGFAULT
+  printf("name_index: %d; flags: 0x%x\n", info.name_index, info.access_flags);
+
+  if (info.attributes_count == 0) {
+    *out_byte_size = offset;
+    info.attributes = NULL;
+    return info;
+  }
+
+  info.attributes = malloc(sizeof(attribute_info) * info.attributes_count);
+  for (int i = 0; i < info.attributes_count; i++) {
+    int attribute_size = 0;
+    info.attributes[i] = parse_attribute_info(data+offset, &attribute_size);
+    offset += attribute_size;
+  }
+
+  *out_byte_size = offset;
+  return info;
+}
+
+field_info parse_field_info(u1 *data, int *out_byte_size /* How many bytes were parsed */) {
+  field_info info = (field_info) { };
+  int offset = 0;
+
+  info.access_flags = *((u2 *) data);
+  info.name_index = *(((u2 *) data)+1);
+  info.descriptor_index = *(((u2 *) data)+2);
+  info.attributes_count = *(((u2 *) data)+3);
+  offset += 8;
+
+  if (info.attributes_count == 0) {
+    info.attributes = NULL;
+    *out_byte_size = offset;
+    return info;
+  }
+
+  info.attributes = malloc(sizeof(attribute_info) * info.attributes_count);
+
+  // TODO(Noah): BUG
+  // Type mismatch. We allocate for a list of pointers but parse_attribute_info
+  // returns a value. It has to be heap allocated an therefore a list of pointers.
+  // Otherwise we point to some invalid part of the stack
+  //
+  // No. We should know how big the structures are that we return, so we can allocate a list of this structure.
+  // But we don't know how much of the input we consumed
+  //
+  // 21:07 09 July 2021
+
+  for (int i = 0; i < info.attributes_count; i++) {
+    int attribute_size = 0;
+    info.attributes[i] = parse_attribute_info(data + offset, &attribute_size);
+
+    offset += attribute_size;
+  }
+
+  *out_byte_size = offset;
+
+  return info;
+}
+
 cp_info parse_cp_info(u1 *data, int *out_byte_size /* How many bytes were parsed */) {
   cp_info info = (cp_info) { };
   info.tag = data[0];
@@ -206,6 +300,7 @@ cp_info parse_cp_info(u1 *data, int *out_byte_size /* How many bytes were parsed
   } break;
   case CONSTANT_Utf8:
   {
+    // TODO: Length 0? Don't malloc in this case
     info.info.utf8_info.length = __builtin_bswap16(*((u2 *)(data+1)));
     info.info.utf8_info.bytes = malloc(info.info.utf8_info.length);
     memcpy(info.info.utf8_info.bytes, data+3, info.info.utf8_info.length);
@@ -257,6 +352,7 @@ ClassFile *parse_class_file(char *filename) {
     class_file->constant_pool[i] = parse_cp_info(data + data_index, &byte_size);
     if (class_file->constant_pool[i].tag == CONSTANT_Long
         || class_file->constant_pool[i].tag == CONSTANT_Double) {
+      // TODO(Noah): Now the indexing is wrong. Will lead to problems later
       i+=1; // Long and Double constants take up 8 bytes and 2 slots in the constant table
     }
     data_index += byte_size;
@@ -266,6 +362,52 @@ ClassFile *parse_class_file(char *filename) {
   class_file->this_class = __builtin_bswap16(*((u2 *)(data + data_index))); data_index += 2;
   class_file->super_class = __builtin_bswap16(*((u2 *)(data + data_index))); data_index += 2;
   class_file->interfaces_count = __builtin_bswap16(*((u2 *)(data + data_index))); data_index += 2;
+  if (class_file->interfaces_count > 0) {
+    class_file->interfaces = malloc(class_file->interfaces_count * sizeof(u2));
+    memcpy(class_file->interfaces, data + data_index, class_file->interfaces_count * sizeof(u2));
+    data_index += class_file->interfaces_count * sizeof(u2);
+  } else {
+    class_file->interfaces = NULL;
+  }
+  class_file->fields_count = __builtin_bswap16(*((u2 *)(data + data_index))); data_index += 2;
+  if (class_file->fields_count > 0) {
+    class_file->fields = malloc(class_file->fields_count * sizeof(field_info));
+    for (int i = 0; i < class_file->fields_count; i++) {
+      int field_info_size = 0;
+      class_file->fields[i] = parse_field_info(data+data_index, &field_info_size);
+      data_index += field_info_size;
+    }
+  } else {
+    class_file->fields = NULL;
+  }
+
+  // TODO: Somewhere here is a bug and were parsing at the wrong offset
+
+  class_file->methods_count = __builtin_bswap16(*((u2 *)(data + data_index))); data_index += 2;
+  if (class_file->methods_count == 0) {
+    class_file->methods = NULL;
+  } else {
+    class_file->methods = malloc(sizeof(method_info) * class_file->methods_count);
+    printf("methods count %d\n", class_file->methods_count);
+    for (int i = 0; i < class_file->methods_count; i++) {
+      int method_info_size = 0;
+      class_file->methods[i] = parse_method_info(data+data_index, &method_info_size);
+      data_index += method_info_size;
+    }
+  }
+
+  class_file->attributes_count = __builtin_bswap16(*((u2 *)(data + data_index))); data_index += 2;
+  if (class_file->attributes_count == 0) {
+    class_file->attributes = NULL;
+  } else {
+    class_file->attributes = malloc(sizeof(attribute_info) * class_file->attributes_count);
+    for (int i = 0; i < class_file->attributes_count; i++) {
+      int attribute_info_size = 0;
+      class_file->attributes[i] = parse_attribute_info(data+data_index, &attribute_info_size);
+      data_index += attribute_info_size;
+    }
+  }
+
 
   close(fd);
   
@@ -294,6 +436,8 @@ int main(int argc, char **argv) {
   printf("this_class %d\n", class_file->this_class);
   printf("super_class %d\n", class_file->super_class);
   printf("interfaces count %d\n", class_file->interfaces_count);
+  printf("fields count %d\n", class_file->fields_count);
+  printf("methods count %d\n", class_file->methods_count);
 
   free_class_file(class_file);
 
