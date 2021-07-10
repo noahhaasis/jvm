@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -123,11 +124,56 @@ typedef struct {
 } cp_info;
 
 typedef struct {
+  u2 start_pc;
+  u2 end_pc;
+  u2 handler_pc;
+  u2 catch_type;
+} exception_table_entry;
+
+typedef struct attribute_info attribute_info;
+
+typedef struct {
+  u2 max_stack;
+  u2 max_locals;
+  u4 code_length;
+  u1 *code;
+  /* u1 code[code_length]; */
+  u2 exception_table_length;
+  exception_table_entry *exception_table;
+  /* exception_table[exception_table_length]; */
+  u2 attributes_count;
+  attribute_info *attributes;
+  /* attribute_info attributes[attributes_count]; */
+} code_attribute;
+
+typedef enum {
+  SourceFile_attribute,
+  ConstantValue_attribute,
+  Code_attribute,
+  Unknown_attribute
+} attribute_type;
+
+struct attribute_info {
     u2 attribute_name_index;
     u4 attribute_length;
-    u1 *info;
+    attribute_type type;
+    // TODO: Include the attribute kind as an enum?
+    union {
+      /* SourceFile_attribute */
+      u2 sourcefile_index;
+
+      /* ConstantValue_attribute */
+      u2 constantvalue_index;
+
+      /* Code_attribute */
+      code_attribute *code_attribute;
+
+      /* other */
+      u1* bytes;
+    } info;
+    // u1 *info;
     /* u1 info[attribute_length]; */
-} attribute_info;
+};
 
 typedef struct {
     u2             access_flags;
@@ -181,30 +227,98 @@ typedef struct {
   /* attribute_info attributes[attributes_count]; */
 } ClassFile;
 
-attribute_info parse_attribute_info(u1 *data, int *out_byte_size /* How many bytes were parsed */) {
+attribute_type parse_attribute_type(char *unicode_name, int length) {
+  if (strncmp(unicode_name, "Code"      , length) == 0) return Code_attribute;
+  if (strncmp(unicode_name, "Constant"  , length) == 0) return ConstantValue_attribute;
+  if (strncmp(unicode_name, "SourceFile", length) == 0) return SourceFile_attribute;
+  return Unknown_attribute;
+}
+
+attribute_info parse_attribute_info(ClassFile *class_file, u1 *data, int *out_byte_size /* How many bytes were parsed */) {
   attribute_info info = (attribute_info) { };
   info.attribute_name_index = __builtin_bswap16(*((u2 *) data));
   info.attribute_length = __builtin_bswap32(*((u4 *) (data + 2)));
+
+  cp_info constant = class_file->constant_pool[info.attribute_name_index-1];
+  info.type = parse_attribute_type((char *)constant.info.utf8_info.bytes, constant.info.utf8_info.length);
+
+#ifdef DEBUG
+  assert(class_file->constant_pool[info.attribute_name_index-1].tag == CONSTANT_Utf8);
+  printf("Attribute name: \"%.*s\"\n", constant.info.utf8_info.length, constant.info.utf8_info.bytes);
+#endif
+
 
   int offset = 6;
 
   if (info.attribute_length == 0) {
     *out_byte_size = offset;
-    info.info = NULL;
     return info;
   }
 
-  info.info = malloc(info.attribute_length);
-  memcpy(info.info, data+offset, info.attribute_length);
+  switch(info.type) {
+  case Code_attribute:
+  {
+    code_attribute *code_attr = malloc(sizeof(code_attribute));
+    code_attr->max_stack = __builtin_bswap16(*((u2 *)(data + offset))); offset += 2;
+    code_attr->max_locals = __builtin_bswap16(*((u2 *)(data + offset))); offset += 2;
+    code_attr->code_length = __builtin_bswap32(*((u4 *)(data + offset))); offset += 4;
 
-  offset += info.attribute_length;
+    code_attr->code = malloc(code_attr->code_length);
+    memcpy(code_attr->code, data+offset, code_attr->code_length);
+    offset += code_attr->code_length;
+
+    code_attr->exception_table_length = __builtin_bswap16(*((u2 *)(data + offset))); offset += 2;
+    if (code_attr->exception_table_length > 0) {
+      int exception_table_bytes = code_attr->exception_table_length * sizeof(exception_table_entry);
+      code_attr->exception_table = malloc(exception_table_bytes);
+      memcpy(code_attr->exception_table, data+offset, exception_table_bytes);
+      offset += exception_table_bytes;
+    } else {
+      code_attr->exception_table = NULL;
+    }
+
+    code_attr->attributes_count = __builtin_bswap16(*((u2 *)(data + offset))); offset += 2;
+    if (code_attr->attributes_count > 0) {
+      code_attr->attributes = malloc(code_attr->attributes_count * sizeof(attribute_info));
+      for (int i = 0; i < code_attr->attributes_count; i++) {
+        int attribute_size = 0;
+        code_attr->attributes[i] = parse_attribute_info(class_file, data+offset, &attribute_size);
+        offset += attribute_size;
+      }
+    } else {
+      code_attr->attributes = NULL;
+    }
+
+    info.info.code_attribute = code_attr;
+  } break;
+  case ConstantValue_attribute:
+  {
+    info.info.constantvalue_index = __builtin_bswap16(*((u2 *)data+offset));
+    offset += 2;
+  } break;
+  case SourceFile_attribute:
+  {
+    // TODO(Noah): There's a bug here? Test with Main.class
+    info.info.sourcefile_index = __builtin_bswap16(*((u2 *)data+offset));
+    offset += 2;
+  } break;
+  case Unknown_attribute:
+  default:
+    info.info.bytes = malloc(info.attribute_length);
+    memcpy(info.info.bytes, data+offset, info.attribute_length);
+    offset += info.attribute_length;
+  }
+
+#ifdef DEBUG
+  assert(offset == info.attribute_length + 6);
+#endif
 
   *out_byte_size = offset;
 
   return info;
 }
 
-method_info parse_method_info(u1 *data, int *out_byte_size /* How many bytes were parsed */) {
+method_info parse_method_info(ClassFile *class_file, u1 *data, int *out_byte_size /* How many bytes were parsed */) {
   int offset = 0;
   method_info info = (method_info) { };
 
@@ -223,7 +337,7 @@ method_info parse_method_info(u1 *data, int *out_byte_size /* How many bytes wer
   info.attributes = malloc(sizeof(attribute_info) * info.attributes_count);
   for (int i = 0; i < info.attributes_count; i++) {
     int attribute_size = 0;
-    info.attributes[i] = parse_attribute_info(data+offset, &attribute_size);
+    info.attributes[i] = parse_attribute_info(class_file, data+offset, &attribute_size);
     offset += attribute_size;
   }
 
@@ -231,7 +345,7 @@ method_info parse_method_info(u1 *data, int *out_byte_size /* How many bytes wer
   return info;
 }
 
-field_info parse_field_info(u1 *data, int *out_byte_size /* How many bytes were parsed */) {
+field_info parse_field_info(ClassFile *class_file, u1 *data, int *out_byte_size /* How many bytes were parsed */) {
   field_info info = (field_info) { };
   int offset = 0;
 
@@ -251,7 +365,7 @@ field_info parse_field_info(u1 *data, int *out_byte_size /* How many bytes were 
 
   for (int i = 0; i < info.attributes_count; i++) {
     int attribute_size = 0;
-    info.attributes[i] = parse_attribute_info(data + offset, &attribute_size);
+    info.attributes[i] = parse_attribute_info(class_file, data + offset, &attribute_size);
 
     offset += attribute_size;
   }
@@ -360,7 +474,7 @@ ClassFile *parse_class_file(char *filename) {
     class_file->fields = malloc(class_file->fields_count * sizeof(field_info));
     for (int i = 0; i < class_file->fields_count; i++) {
       int field_info_size = 0;
-      class_file->fields[i] = parse_field_info(data+data_index, &field_info_size);
+      class_file->fields[i] = parse_field_info(class_file, data+data_index, &field_info_size);
       data_index += field_info_size;
     }
   } else {
@@ -375,7 +489,7 @@ ClassFile *parse_class_file(char *filename) {
     printf("methods count %d\n", class_file->methods_count);
     for (int i = 0; i < class_file->methods_count; i++) {
       int method_info_size = 0;
-      class_file->methods[i] = parse_method_info(data+data_index, &method_info_size);
+      class_file->methods[i] = parse_method_info(class_file, data+data_index, &method_info_size);
       data_index += method_info_size;
     }
   }
@@ -387,7 +501,7 @@ ClassFile *parse_class_file(char *filename) {
     class_file->attributes = malloc(sizeof(attribute_info) * class_file->attributes_count);
     for (int i = 0; i < class_file->attributes_count; i++) {
       int attribute_info_size = 0;
-      class_file->attributes[i] = parse_attribute_info(data+data_index, &attribute_info_size);
+      class_file->attributes[i] = parse_attribute_info(class_file, data+data_index, &attribute_info_size);
       data_index += attribute_info_size;
     }
   }
