@@ -49,7 +49,6 @@ void pretty_print_constant_tag(u1 tag) {
     case CONSTANT_InvokeDynamic: printf("InvokeDynamic\n"); break;
     default: printf("Unknown constant tag %d\n", tag);
   }
-
 }
 
 typedef struct {
@@ -184,8 +183,8 @@ typedef struct {
 
 attribute_info parse_attribute_info(u1 *data, int *out_byte_size /* How many bytes were parsed */) {
   attribute_info info = (attribute_info) { };
-  info.attribute_name_index = *((u2 *) data);
-  info.attribute_length = *((u4 *) (data + 2));
+  info.attribute_name_index = __builtin_bswap16(*((u2 *) data));
+  info.attribute_length = __builtin_bswap32(*((u4 *) (data + 2)));
 
   int offset = 6;
 
@@ -209,15 +208,11 @@ method_info parse_method_info(u1 *data, int *out_byte_size /* How many bytes wer
   int offset = 0;
   method_info info = (method_info) { };
 
-  info.access_flags = *((u2 *)data);
-  info.name_index = *(((u2 *)data)+1);
-  info.descriptor_index = *(((u2 *)data)+2);
-  info.attributes_count = *(((u2 *)data)+3);
+  info.access_flags = __builtin_bswap16(*((u2 *) data));
+  info.name_index = __builtin_bswap16(*(((u2 *) data)+1));
+  info.descriptor_index = __builtin_bswap16(*(((u2 *) data)+2));
+  info.attributes_count = __builtin_bswap16(*(((u2 *) data)+3));
   offset = 8;
-
-  // TODO(Noah): Bug we're messing something up here. This causes attribute_length to be wrong
-  // in parse_attribute_info => SEGFAULT
-  printf("name_index: %d; flags: 0x%x\n", info.name_index, info.access_flags);
 
   if (info.attributes_count == 0) {
     *out_byte_size = offset;
@@ -240,10 +235,10 @@ field_info parse_field_info(u1 *data, int *out_byte_size /* How many bytes were 
   field_info info = (field_info) { };
   int offset = 0;
 
-  info.access_flags = *((u2 *) data);
-  info.name_index = *(((u2 *) data)+1);
-  info.descriptor_index = *(((u2 *) data)+2);
-  info.attributes_count = *(((u2 *) data)+3);
+  info.access_flags = __builtin_bswap16(*((u2 *) data));
+  info.name_index = __builtin_bswap16(*(((u2 *) data)+1));
+  info.descriptor_index = __builtin_bswap16(*(((u2 *) data)+2));
+  info.attributes_count = __builtin_bswap16(*(((u2 *) data)+3));
   offset += 8;
 
   if (info.attributes_count == 0) {
@@ -253,16 +248,6 @@ field_info parse_field_info(u1 *data, int *out_byte_size /* How many bytes were 
   }
 
   info.attributes = malloc(sizeof(attribute_info) * info.attributes_count);
-
-  // TODO(Noah): BUG
-  // Type mismatch. We allocate for a list of pointers but parse_attribute_info
-  // returns a value. It has to be heap allocated an therefore a list of pointers.
-  // Otherwise we point to some invalid part of the stack
-  //
-  // No. We should know how big the structures are that we return, so we can allocate a list of this structure.
-  // But we don't know how much of the input we consumed
-  //
-  // 21:07 09 July 2021
 
   for (int i = 0; i < info.attributes_count; i++) {
     int attribute_size = 0;
@@ -352,7 +337,7 @@ ClassFile *parse_class_file(char *filename) {
     class_file->constant_pool[i] = parse_cp_info(data + data_index, &byte_size);
     if (class_file->constant_pool[i].tag == CONSTANT_Long
         || class_file->constant_pool[i].tag == CONSTANT_Double) {
-      // TODO(Noah): Now the indexing is wrong. Will lead to problems later
+      // NOTE(Noah): Indexing is still write. We just have a uninitialized field
       i+=1; // Long and Double constants take up 8 bytes and 2 slots in the constant table
     }
     data_index += byte_size;
@@ -370,6 +355,7 @@ ClassFile *parse_class_file(char *filename) {
     class_file->interfaces = NULL;
   }
   class_file->fields_count = __builtin_bswap16(*((u2 *)(data + data_index))); data_index += 2;
+  // TODO: The field parsing is already wrong
   if (class_file->fields_count > 0) {
     class_file->fields = malloc(class_file->fields_count * sizeof(field_info));
     for (int i = 0; i < class_file->fields_count; i++) {
@@ -380,8 +366,6 @@ ClassFile *parse_class_file(char *filename) {
   } else {
     class_file->fields = NULL;
   }
-
-  // TODO: Somewhere here is a bug and were parsing at the wrong offset
 
   class_file->methods_count = __builtin_bswap16(*((u2 *)(data + data_index))); data_index += 2;
   if (class_file->methods_count == 0) {
@@ -408,8 +392,9 @@ ClassFile *parse_class_file(char *filename) {
     }
   }
 
+  printf("bytes read: %d; file-size: %ld\n", data_index, stat.st_size);
 
-  close(fd);
+  close(fd); // close after the mmap?
   
   return class_file;
 }
