@@ -9,9 +9,13 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+typedef int64_t i64;
+
+
 typedef uint8_t u1;
 typedef uint16_t u2;
 typedef uint32_t u4;
+typedef uint64_t u8;
 
 /* NOTE(Noah):
  * Multiple byte values in java class files are always stored in _big-endian order_
@@ -85,19 +89,9 @@ typedef struct {
         u4 bytes;
       } integer_info;
 
-      struct {
-        u4 bytes; // TODO: Actually use a float?
-      } float_info;
-
-      struct { // TODO: Use a long?
-        u4 high_bytes;
-        u4 low_bytes;
-      } long_info;
-
-      struct { // TODO: Use a double?
-        u4 high_bytes;
-        u4 low_bytes;
-      } double_info;
+      float  float_value;
+      i64    long_value;
+      double double_value;
 
       struct {
         u2 name_index;
@@ -153,6 +147,8 @@ typedef enum {
   SourceFile_attribute,
   ConstantValue_attribute,
   Code_attribute,
+  LineNumberTable_attribute,
+  StackMapTable_attribute,
   Unknown_attribute
 } attribute_type;
 
@@ -234,6 +230,8 @@ attribute_type parse_attribute_type(char *unicode_name, int length) {
   if (strncmp(unicode_name, "Code"      , length) == 0) return Code_attribute;
   if (strncmp(unicode_name, "Constant"  , length) == 0) return ConstantValue_attribute;
   if (strncmp(unicode_name, "SourceFile", length) == 0) return SourceFile_attribute;
+  if (strncmp(unicode_name, "LineNumberTable", length) == 0) return LineNumberTable_attribute;
+  if (strncmp(unicode_name, "StackMapTable", length) == 0) return StackMapTable_attribute;
   return Unknown_attribute;
 }
 
@@ -306,8 +304,11 @@ attribute_info parse_attribute_info(ClassFile *class_file, u1 *data, int *out_by
     info.info.sourcefile_index = __builtin_bswap16(*((u2 *)(data+offset)));
     offset += 2;
   } break;
+  case LineNumberTable_attribute: // TODO
+  case StackMapTable_attribute: // TODO
   case Unknown_attribute:
   default:
+    printf("Unhandled attribute with name_index %d\n", info.attribute_name_index);
     info.info.bytes = malloc(info.attribute_length);
     memcpy(info.info.bytes, data+offset, info.attribute_length);
     offset += info.attribute_length;
@@ -422,8 +423,10 @@ cp_info parse_cp_info(u1 *data, int *out_byte_size /* How many bytes were parsed
   } break;
   case CONSTANT_Double:
   {
-    info.info.double_info.high_bytes = __builtin_bswap32(*((u4 *)(data+1)));
-    info.info.double_info.low_bytes = __builtin_bswap32(*((u4 *)(data+5)));
+    // TODO: This does not work
+    u8 high_bytes = __builtin_bswap32(*((u4 *)(data + 1)));
+    u8 low_bytes = __builtin_bswap32(*((u4 *)(data + 5)));
+    info.info.double_value = (high_bytes << 32)| low_bytes;
     *out_byte_size = 9;
   } break;
   default: printf("Unhandled cp_info type %u\n", info.tag); break;
@@ -529,6 +532,17 @@ void free_class_file(ClassFile *class_file) {
  * iadd: add int (requires value1: int and value2: int on the stack)
  * iconst <arg1> | push int constant
  *
+ * Needed for fac:
+ * iload<n> | Load local var
+ * ifne
+ * iconst <arg1> | push int constant
+ * ireturn
+ * istore<n> | store int in local variable
+ * if_icmpgt
+ * imul
+ * iinc<local var, amount> | increment local var by amount
+ * goto
+ *
  *
  * Use jasmin to write test bytecode file. Apparently constant folding can't be disabled in javac.
  */
@@ -537,7 +551,15 @@ typedef enum {
   ldc  = 18,
   iadd = 96,
   return_void = 177,
-  iconst
+  iconst,
+  iload,
+  ifne,
+  ireturn,
+  istore,
+  if_icmpgt,
+  imul,
+  iinc,
+  goto_instr,
 } instruction_type;
 
 typedef struct  {
@@ -547,21 +569,15 @@ typedef struct  {
   } args;
 } instruction;
 
-typedef struct {
-  // Operand stack
-  
-  // pc
-} execution_context;
-
 instruction fetch_instruction(u1* bytecode, int *out_num_bytes_consumed) {
   instruction ins = (instruction) {};
   // TODO
   return ins;
 }
 
-void execute(int length, u1 *bytecode) {
-  u1* pc = bytecode;
-  while (pc < bytecode + length) {
+void execute(code_attribute method_code) {
+  u1* pc = method_code.code;
+  while (pc < method_code.code + method_code.code_length) {
     int num_bytes_consumed = 0;
     instruction ins = fetch_instruction(pc, &num_bytes_consumed);
     pc += num_bytes_consumed;
