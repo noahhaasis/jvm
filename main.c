@@ -455,8 +455,9 @@ ClassFile *parse_class_file(char *filename) {
     class_file->constant_pool[i] = parse_cp_info(data + data_index, &byte_size);
     if (class_file->constant_pool[i].tag == CONSTANT_Long
         || class_file->constant_pool[i].tag == CONSTANT_Double) {
-      // NOTE(Noah): Indexing is still write. We just have a uninitialized field
+      // NOTE(Noah): Indexing is still right. We just have a uninitialized field
       i+=1; // Long and Double constants take up 8 bytes and 2 slots in the constant table
+      // TODO(Noah): Maybe initialize the field to something that tells us "this slot is not used"
     }
     data_index += byte_size;
   }
@@ -520,6 +521,65 @@ ClassFile *parse_class_file(char *filename) {
 
 void free_class_file(ClassFile *class_file) {
   // TODO
+}
+
+/* Next: executing simple bytecode programs
+ *
+ * ldc: push item from the runtime constant pool
+ * iadd: add int (requires value1: int and value2: int on the stack)
+ * iconst <arg1> | push int constant
+ *
+ *
+ * Use jasmin to write test bytecode file. Apparently constant folding can't be disabled in javac.
+ */
+
+typedef enum {
+  ldc  = 18,
+  iadd = 96,
+  return_void = 177,
+  iconst
+} instruction_type;
+
+typedef struct  {
+  instruction_type type;
+  union {
+   u4 arg1;
+  } args;
+} instruction;
+
+typedef struct {
+  // Operand stack
+  
+  // pc
+} execution_context;
+
+instruction fetch_instruction(u1* bytecode, int *out_num_bytes_consumed) {
+  instruction ins = (instruction) {};
+  // TODO
+  return ins;
+}
+
+void execute(int length, u1 *bytecode) {
+  u1* pc = bytecode;
+  while (pc < bytecode + length) {
+    int num_bytes_consumed = 0;
+    instruction ins = fetch_instruction(pc, &num_bytes_consumed);
+    pc += num_bytes_consumed;
+
+    // TODO: Execute the instruction
+    switch(ins.type) {
+    case ldc:
+    {} break;
+    case iadd:
+    {} break;
+    case return_void:
+    {} break;
+    case iconst:
+    {} break;
+    default: 
+    }
+  } 
+
 }
 
 int main(int argc, char **argv) {
