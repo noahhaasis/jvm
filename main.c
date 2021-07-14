@@ -15,22 +15,25 @@ typedef uint32_t u4;
 
 /* NOTE(Noah):
  * Multiple byte values in java class files are always stored in _big-endian order_
+ *
+ * Also class file indices into the constant pool are 1 based.
+ * So be careful to always use constant_pool[some_index-1]
  */
 
-#define CONSTANT_Class 	              7u
-#define CONSTANT_Fieldref 	          9u
-#define CONSTANT_Methodref 	          10u
-#define CONSTANT_InterfaceMethodref 	11u
-#define CONSTANT_String 	            8u
-#define CONSTANT_Integer 	            3u
-#define CONSTANT_Float 	              4u
-#define CONSTANT_Long 	              5u
-#define CONSTANT_Double 	            6u
-#define CONSTANT_NameAndType 	        12u
-#define CONSTANT_Utf8 	              1u
-#define CONSTANT_MethodHandle 	      15u
-#define CONSTANT_MethodType 	        16u
-#define CONSTANT_InvokeDynamic 	      18u
+#define CONSTANT_Class                7u
+#define CONSTANT_Fieldref             9u
+#define CONSTANT_Methodref            10u
+#define CONSTANT_InterfaceMethodref   11u
+#define CONSTANT_String               8u
+#define CONSTANT_Integer              3u
+#define CONSTANT_Float                4u
+#define CONSTANT_Long                 5u
+#define CONSTANT_Double               6u
+#define CONSTANT_NameAndType          12u
+#define CONSTANT_Utf8                 1u
+#define CONSTANT_MethodHandle         15u
+#define CONSTANT_MethodType           16u
+#define CONSTANT_InvokeDynamic        18u
 
 void pretty_print_constant_tag(u1 tag) {
   switch(tag) {
@@ -194,14 +197,14 @@ typedef struct {
 } field_info;
 
 /* class access_flags */
-#define ACC_PUBLIC 	    0x0001u
-#define ACC_FINAL 	    0x0010u
-#define ACC_SUPER 	    0x0020u
-#define ACC_INTERFACE 	0x0200u
-#define ACC_ABSTRACT 	  0x0400u
-#define ACC_SYNTHETIC 	0x1000u
-#define ACC_ANNOTATION 	0x2000u
-#define ACC_ENUM 	      0x4000u
+#define ACC_PUBLIC      0x0001u
+#define ACC_FINAL       0x0010u
+#define ACC_SUPER       0x0020u
+#define ACC_INTERFACE   0x0200u
+#define ACC_ABSTRACT    0x0400u
+#define ACC_SYNTHETIC   0x1000u
+#define ACC_ANNOTATION  0x2000u
+#define ACC_ENUM        0x4000u
 
 typedef struct {
   u4             magic;
@@ -271,6 +274,7 @@ attribute_info parse_attribute_info(ClassFile *class_file, u1 *data, int *out_by
     if (code_attr->exception_table_length > 0) {
       int exception_table_bytes = code_attr->exception_table_length * sizeof(exception_table_entry);
       code_attr->exception_table = malloc(exception_table_bytes);
+      // TODO(Noah): Endianness Problems
       memcpy(code_attr->exception_table, data+offset, exception_table_bytes);
       offset += exception_table_bytes;
     } else {
@@ -293,13 +297,13 @@ attribute_info parse_attribute_info(ClassFile *class_file, u1 *data, int *out_by
   } break;
   case ConstantValue_attribute:
   {
-    info.info.constantvalue_index = __builtin_bswap16(*((u2 *)data+offset));
+    info.info.constantvalue_index = __builtin_bswap16(*((u2 *)(data+offset)));
     offset += 2;
   } break;
   case SourceFile_attribute:
   {
     // TODO(Noah): There's a bug here? Test with Main.class
-    info.info.sourcefile_index = __builtin_bswap16(*((u2 *)data+offset));
+    info.info.sourcefile_index = __builtin_bswap16(*((u2 *)(data+offset)));
     offset += 2;
   } break;
   case Unknown_attribute:
@@ -463,6 +467,7 @@ ClassFile *parse_class_file(char *filename) {
   class_file->interfaces_count = __builtin_bswap16(*((u2 *)(data + data_index))); data_index += 2;
   if (class_file->interfaces_count > 0) {
     class_file->interfaces = malloc(class_file->interfaces_count * sizeof(u2));
+    // TODO(Noah): This doesn't work because we have to convert the endianness
     memcpy(class_file->interfaces, data + data_index, class_file->interfaces_count * sizeof(u2));
     data_index += class_file->interfaces_count * sizeof(u2);
   } else {
@@ -537,6 +542,16 @@ int main(int argc, char **argv) {
   printf("interfaces count %d\n", class_file->interfaces_count);
   printf("fields count %d\n", class_file->fields_count);
   printf("methods count %d\n", class_file->methods_count);
+  printf("attributes count %d\n", class_file->attributes_count);
+
+  // Print the source file name
+  for (int i = 0; i < class_file->attributes_count; i++) {
+    if (class_file->attributes[i].type == SourceFile_attribute) {
+      int sourcefile_index = class_file->attributes[i].info.sourcefile_index - 1;
+      cp_info constant = class_file->constant_pool[sourcefile_index];
+      printf("source file name: \"%.*s\"\n", constant.info.utf8_info.length, constant.info.utf8_info.bytes);
+    }
+  }
 
   free_class_file(class_file);
 
