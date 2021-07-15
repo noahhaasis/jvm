@@ -41,6 +41,9 @@ int main(int argc, char **argv) {
     }
   }
 
+  // execute the fac function
+  // TODO
+
   free_class_file(class_file);
 
   return 0;

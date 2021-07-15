@@ -112,6 +112,41 @@ typedef struct {
   u2 catch_type;
 } exception_table_entry;
 
+typedef enum {
+  iconst        = 2,  /* 2 - 8 ; Push iconst_<n>*/
+  ldc           = 18,
+  iload         = 21,
+  aload         = 25,
+  iload_n       = 26, /* 26 - 29 */
+  aload_n       = 42, /* 42 - 45 */
+  istore        = 54,
+  istore_n      = 59, /* 59 - 62 */
+  iadd          = 96,
+  imul          = 104,
+  iinc          = 132,
+  ifne          = 154,
+  if_icmpgt     = 163,
+  goto_instr    = 167,
+  ireturn       = 172,
+  return_void   = 177,
+  getstatic     = 178,
+  invokevirtual = 182,
+  invokespecial = 183,
+  invokestatic  = 184,
+  undefined,
+} instruction_type;
+
+typedef struct  {
+  instruction_type type;
+  union {
+    struct { u1 byte; } single_byte;
+    struct {
+      u1 arg1;
+      u1 arg2;
+    } two_bytes;
+  } as;
+} instruction;
+
 typedef struct attribute_info attribute_info;
 
 typedef struct {
@@ -210,6 +245,8 @@ typedef struct {
   attribute_info *attributes;
   /* attribute_info attributes[attributes_count]; */
 } ClassFile;
+
+instruction *parse_instructions(u8 length, u1 *code);
 
 attribute_type parse_attribute_type(char *unicode_name, int length);
 

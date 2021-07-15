@@ -1,10 +1,11 @@
 class Main {
   public static void main(String[] args) {
-    System.out.println(fac(5));
+    System.out.println(fac());
     System.out.println("Hi there");
   }
 
-  public static int fac(int n) {
+  public static int fac() {
+    int n = 5;
     if (n == 0) return 0;
 
     int res = 1;
