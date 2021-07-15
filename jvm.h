@@ -20,6 +20,8 @@ typedef uint16_t u2;
 typedef uint32_t u4;
 typedef uint64_t u8;
 
+typedef int8_t i1;
+
 /* NOTE(Noah):
  * Multiple byte values in java class files are always stored in _big-endian order_
  *
@@ -261,5 +263,7 @@ cp_info parse_cp_info(u1 *data, int *out_byte_size /* How many bytes were parsed
 ClassFile *parse_class_file(char *filename);
 
 void free_class_file(ClassFile *class_file);
+
+void execute(code_attribute method_code);
 
 #endif

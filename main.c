@@ -10,6 +10,41 @@
 
 #include "jvm.h"
 
+code_attribute *find_code(ClassFile *class_file, method_info method_info) {
+  for (int i = 0; i < method_info.attributes_count; i++) {
+    attribute_info info = method_info.attributes[i];
+    cp_info name_constant = class_file->constant_pool[info.attribute_name_index-1];
+
+    if (strncmp(
+          "Code",
+          (const char *)name_constant.info.utf8_info.bytes,
+          name_constant.info.utf8_info.length) == 0) {
+      return info.info.code_attribute;
+    }
+  }
+
+  printf("Code attribute not found\n");
+  return NULL;
+}
+
+method_info find_method(ClassFile *class_file, char *name) {
+  for (int i = 0; i < class_file->methods_count; i++) {
+    method_info info = class_file->methods[i];
+    cp_info name_constant = class_file->constant_pool[info.name_index - 1];
+
+    if (strncmp(
+          name,
+          (const char *)name_constant.info.utf8_info.bytes,
+          name_constant.info.utf8_info.length) == 0) {
+      printf("Found fac\n");
+      return info;
+    }
+  }
+  printf("Failed to find method \"%s\"", name);
+  assert(0);
+  return (method_info){};
+}
+
 int main(int argc, char **argv) {
   if (argc != 2) {
     printf("Usage: %s <classfile>\n", argv[0]);
@@ -41,8 +76,10 @@ int main(int argc, char **argv) {
     }
   }
 
-  // execute the fac function
-  // TODO
+  method_info fac_info = find_method(class_file, "fac");
+  code_attribute *code_attr = find_code(class_file, fac_info);
+  assert(code_attr != NULL);
+  execute(*code_attr);
 
   free_class_file(class_file);
 
