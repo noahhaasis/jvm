@@ -11,6 +11,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 typedef int64_t i64;
 
@@ -23,6 +24,8 @@ typedef uint64_t u8;
 typedef int8_t  i1;
 typedef int16_t i2;
 typedef int32_t i4;
+
+#define MIN(a, b) (a < b ? a : b)
 
 /* NOTE(Noah):
  * Multiple byte values in java class files are always stored in _big-endian order_
@@ -63,12 +66,12 @@ typedef struct {
       struct {
         u2 class_index;
         u2 name_and_type_index;
-      } method_ref_info;
+      } methodref_info;
 
       struct {
         u2 class_index;
         u2 name_and_type_index;
-      } interface_method_ref_info;
+      } interface_methodref_info;
 
       struct {
         u2 string_index;
@@ -106,6 +109,7 @@ typedef struct {
         u2 name_and_type_index;
       } invoke_dynamic_info;
     } info;
+    // TODO(noah): rename "info" to "as"
     /*u1 info[]*/;
 } cp_info;
 
@@ -125,6 +129,7 @@ typedef enum {
   aload_n       = 42, /* 42 - 45 */
   istore        = 54,
   istore_n      = 59, /* 59 - 62 */
+  pop           = 87,
   iadd          = 96,
   imul          = 104,
   iinc          = 132,
@@ -253,6 +258,10 @@ ClassFile *parse_class_file(char *filename);
 
 void free_class_file(ClassFile *class_file);
 
-void execute(code_attribute method_code);
+code_attribute *find_code(ClassFile *class_file, method_info method_info);
+
+method_info find_method(ClassFile *class_file, char *name, u4 name_length);
+
+void execute(ClassFile *class_file, code_attribute method_code);
 
 #endif

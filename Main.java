@@ -1,11 +1,10 @@
 class Main {
   public static void main(String[] args) {
-    System.out.println(fac());
-    System.out.println("Hi there");
+    fac();
   }
 
   public static int fac() {
-    int n = 5;
+    int n = five();
     if (n == 0) return 0;
 
     int res = 1;
@@ -13,5 +12,9 @@ class Main {
       res *= i;
     } 
     return res;
+  }
+
+  public static int five() {
+    return 5;
   }
 }

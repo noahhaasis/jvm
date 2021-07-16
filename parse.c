@@ -95,7 +95,6 @@ attribute_info parse_attribute_info(ClassFile *class_file, u1 *data, int *out_by
   } break;
   case SourceFile_attribute:
   {
-    // TODO(Noah): There's a bug here? Test with Main.class
     info.info.sourcefile_index = __builtin_bswap16(*((u2 *)(data+offset)));
     offset += 2;
   } break;
@@ -183,8 +182,8 @@ cp_info parse_cp_info(u1 *data, int *out_byte_size /* How many bytes were parsed
   switch (info.tag) {
   case CONSTANT_Methodref:
   {
-    info.info.method_ref_info.class_index = __builtin_bswap16(*((u2 *)(data+1)));
-    info.info.method_ref_info.name_and_type_index = __builtin_bswap16(*((u2 *)(data+3)));
+    info.info.methodref_info.class_index = __builtin_bswap16(*((u2 *)(data+1)));
+    info.info.methodref_info.name_and_type_index = __builtin_bswap16(*((u2 *)(data+3)));
     *out_byte_size = 5;
   } break;
   case CONSTANT_Class:
