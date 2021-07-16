@@ -140,17 +140,6 @@ typedef enum {
   undefined,
 } instruction_type;
 
-typedef struct  {
-  instruction_type type;
-  union {
-    struct { u1 byte; } single_byte;
-    struct {
-      u1 arg1;
-      u1 arg2;
-    } two_bytes;
-  } as;
-} instruction;
-
 typedef struct attribute_info attribute_info;
 
 typedef struct {
@@ -249,8 +238,6 @@ typedef struct {
   attribute_info *attributes;
   /* attribute_info attributes[attributes_count]; */
 } ClassFile;
-
-instruction *parse_instructions(u8 length, u1 *code);
 
 attribute_type parse_attribute_type(char *unicode_name, int length);
 
