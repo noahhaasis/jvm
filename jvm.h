@@ -20,7 +20,9 @@ typedef uint16_t u2;
 typedef uint32_t u4;
 typedef uint64_t u8;
 
-typedef int8_t i1;
+typedef int8_t  i1;
+typedef int16_t i2;
+typedef int32_t i4;
 
 /* NOTE(Noah):
  * Multiple byte values in java class files are always stored in _big-endian order_
