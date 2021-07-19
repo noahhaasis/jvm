@@ -1,6 +1,95 @@
 #include "jvm.h"
 #include "buffer.h"
 
+typedef enum {
+  int_t = 1,
+  double_t,
+} parameter_descriptor;
+
+typedef enum {
+  void_t = 0,
+  // ... parameter_descriptor
+} return_descriptor;
+
+typedef struct {
+  u4 all_params_byte_count;
+  parameter_descriptor *parameter_types; /* stretchy buffer */
+  return_descriptor return_type;
+} method_descriptor;
+
+method_descriptor parse_method_descriptor(char *src, int length) {
+    /* Grammar:
+    MethodDescriptor:
+        ( ParameterDescriptor* ) ReturnDescriptor
+
+    ParameterDescriptor:
+        FieldType
+
+    ReturnDescriptor:
+        FieldType
+        VoidDescriptor
+
+    VoidDescriptor:
+        V
+    */
+  method_descriptor descriptor = (method_descriptor){ };
+  parameter_descriptor *params = NULL;
+
+  assert(length >= 3);
+  assert(src[0] == '(');
+
+  int offset = 1;
+  for (; offset < (length - 1) && src[offset] != ')'; ++offset) {
+    switch(src[offset]) {
+    case 'I':
+    {
+      descriptor.all_params_byte_count += 4;
+      sb_push(params, int_t);
+    } break;
+    case 'D':
+    {
+      descriptor.all_params_byte_count += 8;
+      sb_push(params, double_t);
+    } break;
+    default:
+    {
+      printf("Failed to parse parameter type. Rest of signature TODO");
+      assert(0);
+    }
+    }
+  }
+
+  descriptor.parameter_types = params;
+
+  assert(src[offset] == ')');
+
+  ++offset; // Advance past ')';
+
+  switch(src[offset]) {
+  case 'V':
+  {
+    descriptor.return_type = void_t;
+  } break;
+  case 'I':
+  {
+    descriptor.return_type = int_t;
+  } break;
+  case 'D':
+  {
+    descriptor.return_type = double_t;
+  } break;
+  default:
+  {
+      printf("Failed to parse return type. Rest of signature TODO");
+      assert(0);
+  }
+  }
+
+  assert((offset + 1) == length);
+
+  return descriptor;
+}
+
 code_attribute *find_code(ClassFile *class_file, method_info method_info) {
   for (int i = 0; i < method_info.attributes_count; i++) {
     attribute_info info = method_info.attributes[i];
@@ -27,7 +116,6 @@ method_info find_method(ClassFile *class_file, char *name, u4 name_length) {
           name,
           (const char *)name_constant.info.utf8_info.bytes,
           MIN(name_constant.info.utf8_info.length, name_length)) == 0) {
-      printf("Found fac\n");
       return info;
     }
   }
@@ -127,6 +215,18 @@ void execute(ClassFile *class_file, code_attribute entry_method) {
         offset = (i2) ((branchbyte1 << 8) | branchbyte2);
       }
     } break;
+    case if_icmpne:
+    {
+      u1 branchbyte1 = *(f.pc+offset); offset += 1;
+      u1 branchbyte2 = *(f.pc+offset); offset += 1;
+
+      f.sp -= 1; u4 value2 = *f.sp;
+      f.sp -= 1; u4 value1 = *f.sp;
+
+      if (value1 != value2) { // Branch succeeds
+        offset = (i2) ((branchbyte1 << 8) | branchbyte2);
+      }
+    } break;
     case ireturn:
     {
       f.sp -= 1;
@@ -162,11 +262,24 @@ void execute(ClassFile *class_file, code_attribute entry_method) {
       sb_pop(frames);
       skip_pc_increment = true;
     } break;
+    // TODO: Refactor into macro BINOP
     case imul:
     {
       f.sp -= 1; u4 value2 = *f.sp;
       u4 value1 = *(f.sp-1);
       *(f.sp-1) = (int)value1 * (int)value2;
+    } break;
+    case iadd:
+    {
+      f.sp -= 1; u4 value2 = *f.sp;
+      u4 value1 = *(f.sp-1);
+      *(f.sp-1) = (int)value1 + (int)value2;
+    } break;
+    case isub:
+    {
+      f.sp -= 1; u4 value2 = *f.sp;
+      u4 value1 = *(f.sp-1);
+      *(f.sp-1) = (int)value1 - (int)value2;
     } break;
     case iinc:
     {
@@ -197,8 +310,27 @@ void execute(ClassFile *class_file, code_attribute entry_method) {
       // of this frame
       f.pc += offset;
 
-      // TODO: Handle arguments
+      // Pop all args from the stack and store them in locals[] of the new frame
+      cp_info method_descriptor_string =
+        class_file->constant_pool[method_info.descriptor_index-1];
+      method_descriptor method_descriptor =
+        parse_method_descriptor(
+            (char *)method_descriptor_string.info.utf8_info.bytes,
+            method_descriptor_string.info.utf8_info.length);
+
+      printf("parameter count: %d\n", sb_length(method_descriptor.parameter_types));
+      printf("parameter byte count: %d\n", method_descriptor.all_params_byte_count);
+      printf("return type: %d\n", method_descriptor.return_type);
       frame new_frame = create_frame_from_code_attribute(*method_code);
+
+      // Copy all args from the callers stack to the callees local vars
+      memcpy(
+          new_frame.locals,
+          ((u1 *) f.sp) - method_descriptor.all_params_byte_count,
+          method_descriptor.all_params_byte_count);
+      // Pop all args
+      f.sp = ((u1 *) f.sp) - method_descriptor.all_params_byte_count;
+
       sb_push(frames, f);
       f = new_frame;
 

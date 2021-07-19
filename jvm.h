@@ -131,9 +131,11 @@ typedef enum {
   istore_n      = 59, /* 59 - 62 */
   pop           = 87,
   iadd          = 96,
+  isub          = 100,
   imul          = 104,
   iinc          = 132,
   ifne          = 154,
+  if_icmpne     = 160,
   if_icmpgt     = 163,
   goto_instr    = 167,
   ireturn       = 172,
