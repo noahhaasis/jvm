@@ -191,6 +191,19 @@ void execute(ClassFile *class_file, code_attribute entry_method) {
       f.locals[local_var_index] = *f.sp;
     } break;
     case pop: { f.sp -= 1; } break;
+    // TODO: Macro ifCOND(op) ...
+    case ifeq:
+    {
+      u1 branchbyte1 = *(f.pc+offset); offset += 1;
+      u1 branchbyte2 = *(f.pc+offset); offset += 1;
+
+      f.sp -= 1;
+      u4 value = *f.sp;
+
+      if (value == 0) { // Branch succeeds
+        offset = (i2)((branchbyte1 << 8) | branchbyte2);
+      }
+    } break;
     case ifne:
     {
       u1 branchbyte1 = *(f.pc+offset); offset += 1;
@@ -318,9 +331,6 @@ void execute(ClassFile *class_file, code_attribute entry_method) {
             (char *)method_descriptor_string.info.utf8_info.bytes,
             method_descriptor_string.info.utf8_info.length);
 
-      printf("parameter count: %d\n", sb_length(method_descriptor.parameter_types));
-      printf("parameter byte count: %d\n", method_descriptor.all_params_byte_count);
-      printf("return type: %d\n", method_descriptor.return_type);
       frame new_frame = create_frame_from_code_attribute(*method_code);
 
       // Copy all args from the callers stack to the callees local vars

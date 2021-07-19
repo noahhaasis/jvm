@@ -134,6 +134,7 @@ typedef enum {
   isub          = 100,
   imul          = 104,
   iinc          = 132,
+  ifeq          = 153,
   ifne          = 154,
   if_icmpne     = 160,
   if_icmpgt     = 163,

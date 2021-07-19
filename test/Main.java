@@ -4,7 +4,7 @@ class Main {
   public static void main(String[] args) {
     five();
     fac(5);
-    // fib(5);
+    fib(5);
   }
 
   public static int fac(int n) {
