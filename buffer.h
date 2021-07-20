@@ -21,14 +21,14 @@ typedef struct {
     if (!buffer) { \
       void *base = malloc(sizeof(sb_header) + INITIAL_CAPACITY * sizeof(elem)); \
       *((sb_header *)base) = (sb_header) {.length = 1, .capacity = INITIAL_CAPACITY}; \
-      buffer = (((char *) base) + sizeof(sb_header)); \
+      buffer = (void *)(((char *) base) + sizeof(sb_header)); \
       buffer[0] = elem; \
     } else { \
       sb_header *base = __buf_header(buffer); \
       if (base->length == base->capacity) { \
         base = realloc(base, sizeof(sb_header) + base->capacity * 2 * sizeof(elem)); \
         base->capacity *= 2; \
-        buffer = (((char *) base) + sizeof(sb_header)); \
+        buffer = (void  *)(((char *) base) + sizeof(sb_header)); \
       }\
       buffer[base->length] = elem; \
       base->length += 1; \

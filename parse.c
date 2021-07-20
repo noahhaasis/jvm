@@ -1,7 +1,7 @@
 #include "jvm.h"
 #include "buffer.h"
 
-void pretty_print_constant_tag(u1 tag) {
+void pretty_print_constant_tag(u8 tag) {
   switch(tag) {
     case CONSTANT_Class: printf("Class\n"); break;
     case CONSTANT_Fieldref: printf("Fieldref\n"); break;
@@ -30,17 +30,17 @@ attribute_type parse_attribute_type(char *unicode_name, int length) {
   return Unknown_attribute;
 }
 
-attribute_info parse_attribute_info(ClassFile *class_file, u1 *data, int *out_byte_size /* How many bytes were parsed */) {
+attribute_info parse_attribute_info(ClassFile *class_file, u8 *data, int *out_byte_size /* How many bytes were parsed */) {
   attribute_info info = (attribute_info) { };
-  info.attribute_name_index = __builtin_bswap16(*((u2 *) data));
-  info.attribute_length = __builtin_bswap32(*((u4 *) (data + 2)));
+  info.attribute_name_index = __builtin_bswap16(*((u16 *) data));
+  info.attribute_length = __builtin_bswap32(*((u32 *) (data + 2)));
 
   cp_info constant = class_file->constant_pool[info.attribute_name_index-1];
-  info.type = parse_attribute_type((char *)constant.info.utf8_info.bytes, constant.info.utf8_info.length);
+  info.type = parse_attribute_type((char *)constant.as.utf8_info.bytes, constant.as.utf8_info.length);
 
 #ifdef DEBUG
   assert(class_file->constant_pool[info.attribute_name_index-1].tag == CONSTANT_Utf8);
-  printf("Attribute name: \"%.*s\"\n", constant.info.utf8_info.length, constant.info.utf8_info.bytes);
+  printf("Attribute name: \"%.*s\"\n", constant.as.utf8_info.length, constant.as.utf8_info.bytes);
 #endif
 
 
@@ -55,15 +55,15 @@ attribute_info parse_attribute_info(ClassFile *class_file, u1 *data, int *out_by
   case Code_attribute:
   {
     code_attribute *code_attr = malloc(sizeof(code_attribute));
-    code_attr->max_stack = __builtin_bswap16(*((u2 *)(data + offset))); offset += 2;
-    code_attr->max_locals = __builtin_bswap16(*((u2 *)(data + offset))); offset += 2;
-    code_attr->code_length = __builtin_bswap32(*((u4 *)(data + offset))); offset += 4;
+    code_attr->max_stack = __builtin_bswap16(*((u16 *)(data + offset))); offset += 2;
+    code_attr->max_locals = __builtin_bswap16(*((u16 *)(data + offset))); offset += 2;
+    code_attr->code_length = __builtin_bswap32(*((u32 *)(data + offset))); offset += 4;
 
     code_attr->code = malloc(code_attr->code_length);
     memcpy(code_attr->code, data+offset, code_attr->code_length);
     offset += code_attr->code_length;
 
-    code_attr->exception_table_length = __builtin_bswap16(*((u2 *)(data + offset))); offset += 2;
+    code_attr->exception_table_length = __builtin_bswap16(*((u16 *)(data + offset))); offset += 2;
     if (code_attr->exception_table_length > 0) {
       int exception_table_bytes = code_attr->exception_table_length * sizeof(exception_table_entry);
       code_attr->exception_table = malloc(exception_table_bytes);
@@ -74,7 +74,7 @@ attribute_info parse_attribute_info(ClassFile *class_file, u1 *data, int *out_by
       code_attr->exception_table = NULL;
     }
 
-    code_attr->attributes_count = __builtin_bswap16(*((u2 *)(data + offset))); offset += 2;
+    code_attr->attributes_count = __builtin_bswap16(*((u16 *)(data + offset))); offset += 2;
     if (code_attr->attributes_count > 0) {
       code_attr->attributes = malloc(code_attr->attributes_count * sizeof(attribute_info));
       for (int i = 0; i < code_attr->attributes_count; i++) {
@@ -86,16 +86,16 @@ attribute_info parse_attribute_info(ClassFile *class_file, u1 *data, int *out_by
       code_attr->attributes = NULL;
     }
 
-    info.info.code_attribute = code_attr;
+    info.as.code_attribute = code_attr;
   } break;
   case ConstantValue_attribute:
   {
-    info.info.constantvalue_index = __builtin_bswap16(*((u2 *)(data+offset)));
+    info.as.constantvalue_index = __builtin_bswap16(*((u16 *)(data+offset)));
     offset += 2;
   } break;
   case SourceFile_attribute:
   {
-    info.info.sourcefile_index = __builtin_bswap16(*((u2 *)(data+offset)));
+    info.as.sourcefile_index = __builtin_bswap16(*((u16 *)(data+offset)));
     offset += 2;
   } break;
   case LineNumberTable_attribute: // TODO
@@ -103,8 +103,8 @@ attribute_info parse_attribute_info(ClassFile *class_file, u1 *data, int *out_by
   case Unknown_attribute:
   default:
     printf("Unhandled attribute with name_index %d\n", info.attribute_name_index);
-    info.info.bytes = malloc(info.attribute_length);
-    memcpy(info.info.bytes, data+offset, info.attribute_length);
+    info.as.bytes = malloc(info.attribute_length);
+    memcpy(info.as.bytes, data+offset, info.attribute_length);
     offset += info.attribute_length;
   }
 
@@ -117,14 +117,14 @@ attribute_info parse_attribute_info(ClassFile *class_file, u1 *data, int *out_by
   return info;
 }
 
-method_info parse_method_info(ClassFile *class_file, u1 *data, int *out_byte_size /* How many bytes were parsed */) {
+method_info parse_method_info(ClassFile *class_file, u8 *data, int *out_byte_size /* How many bytes were parsed */) {
   int offset = 0;
   method_info info = (method_info) { };
 
-  info.access_flags = __builtin_bswap16(*((u2 *) data));
-  info.name_index = __builtin_bswap16(*(((u2 *) data)+1));
-  info.descriptor_index = __builtin_bswap16(*(((u2 *) data)+2));
-  info.attributes_count = __builtin_bswap16(*(((u2 *) data)+3));
+  info.access_flags = __builtin_bswap16(*((u16 *) data));
+  info.name_index = __builtin_bswap16(*(((u16 *) data)+1));
+  info.descriptor_index = __builtin_bswap16(*(((u16 *) data)+2));
+  info.attributes_count = __builtin_bswap16(*(((u16 *) data)+3));
   offset = 8;
 
   if (info.attributes_count == 0) {
@@ -145,14 +145,14 @@ method_info parse_method_info(ClassFile *class_file, u1 *data, int *out_byte_siz
 }
 
 
-field_info parse_field_info(ClassFile *class_file, u1 *data, int *out_byte_size /* How many bytes were parsed */) {
+field_info parse_field_info(ClassFile *class_file, u8 *data, int *out_byte_size /* How many bytes were parsed */) {
   field_info info = (field_info) { };
   int offset = 0;
 
-  info.access_flags = __builtin_bswap16(*((u2 *) data));
-  info.name_index = __builtin_bswap16(*(((u2 *) data)+1));
-  info.descriptor_index = __builtin_bswap16(*(((u2 *) data)+2));
-  info.attributes_count = __builtin_bswap16(*(((u2 *) data)+3));
+  info.access_flags = __builtin_bswap16(*((u16 *) data));
+  info.name_index = __builtin_bswap16(*(((u16 *) data)+1));
+  info.descriptor_index = __builtin_bswap16(*(((u16 *) data)+2));
+  info.attributes_count = __builtin_bswap16(*(((u16 *) data)+3));
   offset += 8;
 
   if (info.attributes_count == 0) {
@@ -175,53 +175,53 @@ field_info parse_field_info(ClassFile *class_file, u1 *data, int *out_byte_size 
   return info;
 }
 
-cp_info parse_cp_info(u1 *data, int *out_byte_size /* How many bytes were parsed */) {
+cp_info parse_cp_info(u8 *data, int *out_byte_size /* How many bytes were parsed */) {
   cp_info info = (cp_info) { };
   info.tag = data[0];
 
   switch (info.tag) {
   case CONSTANT_Methodref:
   {
-    info.info.methodref_info.class_index = __builtin_bswap16(*((u2 *)(data+1)));
-    info.info.methodref_info.name_and_type_index = __builtin_bswap16(*((u2 *)(data+3)));
+    info.as.methodref_info.class_index = __builtin_bswap16(*((u16 *)(data+1)));
+    info.as.methodref_info.name_and_type_index = __builtin_bswap16(*((u16 *)(data+3)));
     *out_byte_size = 5;
   } break;
   case CONSTANT_Class:
   {
-    info.info.class_info.name_index = __builtin_bswap16(*((u2 *)(data+1)));
+    info.as.class_info.name_index = __builtin_bswap16(*((u16 *)(data+1)));
     *out_byte_size = 3;
   } break;
   case CONSTANT_NameAndType:
   {
-    info.info.name_and_type_info.name_index = __builtin_bswap16(*((u2 *)(data+1)));
-    info.info.name_and_type_info.descriptor_index = __builtin_bswap16(*((u2 *)(data+3)));
+    info.as.name_and_type_info.name_index = __builtin_bswap16(*((u16 *)(data+1)));
+    info.as.name_and_type_info.descriptor_index = __builtin_bswap16(*((u16 *)(data+3)));
     *out_byte_size = 5;
   } break;
   case CONSTANT_Utf8:
   {
     // TODO: Length 0? Don't malloc in this case
-    info.info.utf8_info.length = __builtin_bswap16(*((u2 *)(data+1)));
-    info.info.utf8_info.bytes = malloc(info.info.utf8_info.length);
-    memcpy(info.info.utf8_info.bytes, data+3, info.info.utf8_info.length);
-    *out_byte_size = 3 + info.info.utf8_info.length;
+    info.as.utf8_info.length = __builtin_bswap16(*((u16 *)(data+1)));
+    info.as.utf8_info.bytes = malloc(info.as.utf8_info.length);
+    memcpy(info.as.utf8_info.bytes, data+3, info.as.utf8_info.length);
+    *out_byte_size = 3 + info.as.utf8_info.length;
   } break;
   case CONSTANT_Fieldref:
   {
-    info.info.field_ref_info.class_index = __builtin_bswap16(*((u2 *)(data+1)));
-    info.info.field_ref_info.name_and_type_index = __builtin_bswap16(*((u2 *)(data+3)));
+    info.as.field_ref_info.class_index = __builtin_bswap16(*((u16 *)(data+1)));
+    info.as.field_ref_info.name_and_type_index = __builtin_bswap16(*((u16 *)(data+3)));
     *out_byte_size = 5;
   } break;
   case CONSTANT_String:
   {
-    info.info.string_info.string_index = __builtin_bswap16(*((u2 *)(data+1)));
+    info.as.string_info.string_index = __builtin_bswap16(*((u16 *)(data+1)));
     *out_byte_size = 3;
   } break;
   case CONSTANT_Double:
   {
     // TODO: This does not work
-    u8 high_bytes = __builtin_bswap32(*((u4 *)(data + 1)));
-    u8 low_bytes = __builtin_bswap32(*((u4 *)(data + 5)));
-    info.info.double_value = (high_bytes << 32)| low_bytes;
+    u64 high_bytes = __builtin_bswap32(*((u32 *)(data + 1)));
+    u64 low_bytes = __builtin_bswap32(*((u32 *)(data + 5)));
+    info.as.double_value = (high_bytes << 32)| low_bytes;
     *out_byte_size = 9;
   } break;
   default: printf("Unhandled cp_info type %u\n", info.tag); break;
@@ -232,19 +232,19 @@ cp_info parse_cp_info(u1 *data, int *out_byte_size /* How many bytes were parsed
 ClassFile *parse_class_file(char *filename) {
   // mmap the whole file for now
   int fd = open(filename, O_RDONLY);
-  if (!fd) return NULL;
+  if (fd == -1) return NULL;
 
   struct stat stat;
   fstat(fd, &stat);
 
-  u1* data = mmap(0, stat.st_size, PROT_READ, MAP_SHARED, fd, 0);
+  u8* data = mmap(0, stat.st_size, PROT_READ, MAP_SHARED, fd, 0);
 
   ClassFile *class_file = malloc(sizeof(ClassFile));
 
-  class_file->magic               = __builtin_bswap32(((u4 *)data)[0]);
-  class_file->minor_version       = __builtin_bswap16(((u2 *)data)[2]);
-  class_file->major_version       = __builtin_bswap16(((u2 *)data)[3]);
-  class_file->constant_pool_count = __builtin_bswap16(((u2 *)data)[4]);
+  class_file->magic               = __builtin_bswap32(((u32 *)data)[0]);
+  class_file->minor_version       = __builtin_bswap16(((u16 *)data)[2]);
+  class_file->major_version       = __builtin_bswap16(((u16 *)data)[3]);
+  class_file->constant_pool_count = __builtin_bswap16(((u16 *)data)[4]);
 
   class_file->constant_pool = malloc(sizeof(cp_info)*(class_file->constant_pool_count-1));
   int byte_size = 0;
@@ -260,19 +260,19 @@ ClassFile *parse_class_file(char *filename) {
     data_index += byte_size;
   }
 
-  class_file->access_flags = __builtin_bswap16(*((u2 *)(data + data_index))); data_index += 2;
-  class_file->this_class = __builtin_bswap16(*((u2 *)(data + data_index))); data_index += 2;
-  class_file->super_class = __builtin_bswap16(*((u2 *)(data + data_index))); data_index += 2;
-  class_file->interfaces_count = __builtin_bswap16(*((u2 *)(data + data_index))); data_index += 2;
+  class_file->access_flags = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
+  class_file->this_class = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
+  class_file->super_class = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
+  class_file->interfaces_count = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
   if (class_file->interfaces_count > 0) {
-    class_file->interfaces = malloc(class_file->interfaces_count * sizeof(u2));
+    class_file->interfaces = malloc(class_file->interfaces_count * sizeof(u16));
     // TODO(Noah): This doesn't work because we have to convert the endianness
-    memcpy(class_file->interfaces, data + data_index, class_file->interfaces_count * sizeof(u2));
-    data_index += class_file->interfaces_count * sizeof(u2);
+    memcpy(class_file->interfaces, data + data_index, class_file->interfaces_count * sizeof(u16));
+    data_index += class_file->interfaces_count * sizeof(u16);
   } else {
     class_file->interfaces = NULL;
   }
-  class_file->fields_count = __builtin_bswap16(*((u2 *)(data + data_index))); data_index += 2;
+  class_file->fields_count = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
   // TODO: The field parsing is already wrong
   if (class_file->fields_count > 0) {
     class_file->fields = malloc(class_file->fields_count * sizeof(field_info));
@@ -285,7 +285,7 @@ ClassFile *parse_class_file(char *filename) {
     class_file->fields = NULL;
   }
 
-  class_file->methods_count = __builtin_bswap16(*((u2 *)(data + data_index))); data_index += 2;
+  class_file->methods_count = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
   if (class_file->methods_count == 0) {
     class_file->methods = NULL;
   } else {
@@ -298,7 +298,7 @@ ClassFile *parse_class_file(char *filename) {
     }
   }
 
-  class_file->attributes_count = __builtin_bswap16(*((u2 *)(data + data_index))); data_index += 2;
+  class_file->attributes_count = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
   if (class_file->attributes_count == 0) {
     class_file->attributes = NULL;
   } else {

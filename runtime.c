@@ -12,7 +12,7 @@ typedef enum {
 } return_descriptor;
 
 typedef struct {
-  u4 all_params_byte_count;
+  u32 all_params_byte_count;
   parameter_descriptor *parameter_types; /* stretchy buffer */
   return_descriptor return_type;
 } method_descriptor;
@@ -97,9 +97,9 @@ code_attribute *find_code(ClassFile *class_file, method_info method_info) {
 
     if (strncmp(
           "Code",
-          (const char *)name_constant.info.utf8_info.bytes,
-          name_constant.info.utf8_info.length) == 0) {
-      return info.info.code_attribute;
+          (const char *)name_constant.as.utf8_info.bytes,
+          name_constant.as.utf8_info.length) == 0) {
+      return info.as.code_attribute;
     }
   }
 
@@ -107,15 +107,15 @@ code_attribute *find_code(ClassFile *class_file, method_info method_info) {
   return NULL;
 }
 
-method_info find_method(ClassFile *class_file, char *name, u4 name_length) {
+method_info find_method(ClassFile *class_file, char *name, u32 name_length) {
   for (int i = 0; i < class_file->methods_count; i++) {
     method_info info = class_file->methods[i];
     cp_info name_constant = class_file->constant_pool[info.name_index - 1];
 
     if (strncmp(
           name,
-          (const char *)name_constant.info.utf8_info.bytes,
-          MIN(name_constant.info.utf8_info.length, name_length)) == 0) {
+          (const char *)name_constant.as.utf8_info.bytes,
+          MIN(name_constant.as.utf8_info.length, name_length)) == 0) {
       return info;
     }
   }
@@ -130,16 +130,16 @@ method_info find_method(ClassFile *class_file, char *name, u4 name_length) {
  */
 
 typedef struct {
-  u1 *pc;
-  u4 *stack;
-  u4 *sp;
-  u4 *locals;
+  u8 *pc;
+  u32 *stack;
+  u32 *sp;
+  u32 *locals;
 } frame;
 
 frame create_frame_from_code_attribute(code_attribute code_attr) {
-  u4 *stack =
+  u32 *stack =
     code_attr.max_stack > 0
-    ? malloc(code_attr.max_stack * sizeof(u4))
+    ? malloc(code_attr.max_stack * sizeof(u32))
     : NULL;
   return (frame) {
     .pc = code_attr.code,
@@ -147,7 +147,7 @@ frame create_frame_from_code_attribute(code_attribute code_attr) {
     .sp = stack,
     .locals =
       code_attr.max_locals > 0
-      ? malloc(code_attr.max_locals * sizeof(u4))
+      ? malloc(code_attr.max_locals * sizeof(u32))
       : NULL,
   };
 }
@@ -164,29 +164,29 @@ void execute(ClassFile *class_file, code_attribute entry_method) {
 
   while (true) { // TODO(noah): Prevent overflows here
     bool skip_pc_increment = false;
-    i4 offset = 1;
-    u1 bytecode = *f.pc;
+    i32 offset = 1;
+    u8 bytecode = *f.pc;
 
     switch(bytecode) {
     /* iconst_<n> */
     case 2: case 3: case 4: case 5:
     case 6: case 7: case 8:
     {
-      u1 n = bytecode - 3;
+      u8 n = bytecode - 3;
       *f.sp = n;
       f.sp += 1;
     } break;
     /* iload_<n> */
     case 26: case 27: case 28: case 29:
     {
-      u1 local_var_index = bytecode - 26;
+      u8 local_var_index = bytecode - 26;
       *f.sp = f.locals[local_var_index];
       f.sp += 1;
     } break;
     /* istore_<n> */
     case 59: case 60: case 61: case 62:
     {
-      u1 local_var_index = bytecode - 59;
+      u8 local_var_index = bytecode - 59;
       f.sp -= 1;
       f.locals[local_var_index] = *f.sp;
     } break;
@@ -194,56 +194,56 @@ void execute(ClassFile *class_file, code_attribute entry_method) {
     // TODO: Macro ifCOND(op) ...
     case ifeq:
     {
-      u1 branchbyte1 = *(f.pc+offset); offset += 1;
-      u1 branchbyte2 = *(f.pc+offset); offset += 1;
+      u8 branchbyte1 = *(f.pc+offset); offset += 1;
+      u8 branchbyte2 = *(f.pc+offset); offset += 1;
 
       f.sp -= 1;
-      u4 value = *f.sp;
+      u32 value = *f.sp;
 
       if (value == 0) { // Branch succeeds
-        offset = (i2)((branchbyte1 << 8) | branchbyte2);
+        offset = (i16)((branchbyte1 << 8) | branchbyte2);
       }
     } break;
     case ifne:
     {
-      u1 branchbyte1 = *(f.pc+offset); offset += 1;
-      u1 branchbyte2 = *(f.pc+offset); offset += 1;
+      u8 branchbyte1 = *(f.pc+offset); offset += 1;
+      u8 branchbyte2 = *(f.pc+offset); offset += 1;
 
       f.sp -= 1;
-      u4 value = *f.sp;
+      u32 value = *f.sp;
 
       if (value != 0) { // Branch succeeds
-        offset = (i2)((branchbyte1 << 8) | branchbyte2);
+        offset = (i16)((branchbyte1 << 8) | branchbyte2);
       }
     } break;
     case if_icmpgt:
     {
-      u1 branchbyte1 = *(f.pc+offset); offset += 1;
-      u1 branchbyte2 = *(f.pc+offset); offset += 1;
+      u8 branchbyte1 = *(f.pc+offset); offset += 1;
+      u8 branchbyte2 = *(f.pc+offset); offset += 1;
 
-      f.sp -= 1; u4 value2 = *f.sp;
-      f.sp -= 1; u4 value1 = *f.sp;
+      f.sp -= 1; u32 value2 = *f.sp;
+      f.sp -= 1; u32 value1 = *f.sp;
 
       if (value1 > value2) { // Branch succeeds
-        offset = (i2) ((branchbyte1 << 8) | branchbyte2);
+        offset = (i16) ((branchbyte1 << 8) | branchbyte2);
       }
     } break;
     case if_icmpne:
     {
-      u1 branchbyte1 = *(f.pc+offset); offset += 1;
-      u1 branchbyte2 = *(f.pc+offset); offset += 1;
+      u8 branchbyte1 = *(f.pc+offset); offset += 1;
+      u8 branchbyte2 = *(f.pc+offset); offset += 1;
 
-      f.sp -= 1; u4 value2 = *f.sp;
-      f.sp -= 1; u4 value1 = *f.sp;
+      f.sp -= 1; u32 value2 = *f.sp;
+      f.sp -= 1; u32 value1 = *f.sp;
 
       if (value1 != value2) { // Branch succeeds
-        offset = (i2) ((branchbyte1 << 8) | branchbyte2);
+        offset = (i16) ((branchbyte1 << 8) | branchbyte2);
       }
     } break;
     case ireturn:
     {
       f.sp -= 1;
-      u4 value = *f.sp;
+      u32 value = *f.sp;
       printf("Returning int %d\n", value);
       if (sb_is_empty(frames)) {
         goto exit;
@@ -278,45 +278,45 @@ void execute(ClassFile *class_file, code_attribute entry_method) {
     // TODO: Refactor into macro BINOP
     case imul:
     {
-      f.sp -= 1; u4 value2 = *f.sp;
-      u4 value1 = *(f.sp-1);
+      f.sp -= 1; u32 value2 = *f.sp;
+      u32 value1 = *(f.sp-1);
       *(f.sp-1) = (int)value1 * (int)value2;
     } break;
     case iadd:
     {
-      f.sp -= 1; u4 value2 = *f.sp;
-      u4 value1 = *(f.sp-1);
+      f.sp -= 1; u32 value2 = *f.sp;
+      u32 value1 = *(f.sp-1);
       *(f.sp-1) = (int)value1 + (int)value2;
     } break;
     case isub:
     {
-      f.sp -= 1; u4 value2 = *f.sp;
-      u4 value1 = *(f.sp-1);
+      f.sp -= 1; u32 value2 = *f.sp;
+      u32 value1 = *(f.sp-1);
       *(f.sp-1) = (int)value1 - (int)value2;
     } break;
     case iinc:
     {
-      u1 index = *(f.pc + offset); offset += 1;
-      i1 const_value = *(f.pc + offset); offset += 1;
+      u8 index = *(f.pc + offset); offset += 1;
+      i8 const_value = *(f.pc + offset); offset += 1;
 
       f.locals[index] += const_value;
     } break;
     case invokestatic:
     {
-      u1 indexbyte1 = *(f.pc+offset); offset += 1;
-      u1 indexbyte2 = *(f.pc+offset); offset += 1;
-      u2 index = (indexbyte1 << 8) | indexbyte2;
+      u8 indexbyte1 = *(f.pc+offset); offset += 1;
+      u8 indexbyte2 = *(f.pc+offset); offset += 1;
+      u16 index = (indexbyte1 << 8) | indexbyte2;
 
-      u2 name_and_type_index =
-        class_file->constant_pool[index-1].info.methodref_info.name_and_type_index;
-      u2 name_index =
-        class_file->constant_pool[name_and_type_index-1].info.name_and_type_info.name_index;
+      u16 name_and_type_index =
+        class_file->constant_pool[index-1].as.methodref_info.name_and_type_index;
+      u16 name_index =
+        class_file->constant_pool[name_and_type_index-1].as.name_and_type_info.name_index;
       cp_info method_name_constant = class_file->constant_pool[name_index-1];
 
       method_info method_info = find_method(
           class_file,
-          (char *)method_name_constant.info.utf8_info.bytes,
-          method_name_constant.info.utf8_info.length);
+          (char *)method_name_constant.as.utf8_info.bytes,
+          method_name_constant.as.utf8_info.length);
       code_attribute *method_code = find_code(class_file, method_info);
 
       // Add the offset now so that the function returns to the next instruction
@@ -328,18 +328,18 @@ void execute(ClassFile *class_file, code_attribute entry_method) {
         class_file->constant_pool[method_info.descriptor_index-1];
       method_descriptor method_descriptor =
         parse_method_descriptor(
-            (char *)method_descriptor_string.info.utf8_info.bytes,
-            method_descriptor_string.info.utf8_info.length);
+            (char *)method_descriptor_string.as.utf8_info.bytes,
+            method_descriptor_string.as.utf8_info.length);
 
       frame new_frame = create_frame_from_code_attribute(*method_code);
 
       // Copy all args from the callers stack to the callees local vars
       memcpy(
           new_frame.locals,
-          ((u1 *) f.sp) - method_descriptor.all_params_byte_count,
+          ((u8 *) f.sp) - method_descriptor.all_params_byte_count,
           method_descriptor.all_params_byte_count);
       // Pop all args
-      f.sp = ((u1 *) f.sp) - method_descriptor.all_params_byte_count;
+      f.sp = ((u8 *) f.sp) - method_descriptor.all_params_byte_count;
 
       sb_push(frames, f);
       f = new_frame;
@@ -348,10 +348,10 @@ void execute(ClassFile *class_file, code_attribute entry_method) {
     } break;
     case goto_instr:
     {
-      u1 branchbyte1 = *(f.pc+offset); offset += 1;
-      u1 branchbyte2 = *(f.pc+offset); offset += 1;
+      u8 branchbyte1 = *(f.pc+offset); offset += 1;
+      u8 branchbyte2 = *(f.pc+offset); offset += 1;
 
-      offset = (i2)((branchbyte1 << 8) | branchbyte2);
+      offset = (i16)((branchbyte1 << 8) | branchbyte2);
     } break;
     default: printf("Unhandled instruction with opcode %d\n", bytecode);
     }

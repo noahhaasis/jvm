@@ -11,21 +11,21 @@
 typedef struct  {
   instruction_type type;
   union {
-    struct { u1 byte; } single_byte;
+    struct { u8 byte; } single_byte;
     struct {
-      u1 arg1;
-      u1 arg2;
+      u8 arg1;
+      u8 arg2;
     } two_bytes;
   } as;
 } instruction;
 
 /* returns a stretchy buffer of instructions. */
-instruction *parse_instructions(u8 length, u1 *code) {
+instruction *parse_instructions(u64 length, u8 *code) {
   instruction *instructions = NULL;
 
-  u8 offset = 0;
+  u64 offset = 0;
   while (offset < length) {
-    u1 bytecode = *(code+offset); offset += 1;
+    u8 bytecode = *(code+offset); offset += 1;
     instruction instr = {};
 
     instr.type = bytecode;
