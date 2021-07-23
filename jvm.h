@@ -1,7 +1,8 @@
 #ifndef JVM_H
 #define JVM_H
 
-#include <stdint.h>
+#include "common.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -13,17 +14,6 @@
 #include <unistd.h>
 #include <stdbool.h>
 
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-
-typedef int8_t  i8;
-typedef int16_t i16;
-typedef int32_t i32;
-typedef int64_t i64;
-
-#define MIN(a, b) (a < b ? a : b)
 
 /* NOTE(Noah):
  * Multiple byte values in java class files are always stored in _big-endian order_

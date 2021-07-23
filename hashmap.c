@@ -3,57 +3,55 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
 
 #define NUM_BUCKETS 64
 
-typedef uint64_t u64;
-
-typedef struct bucket_item bucket_item;
-struct bucket_item {
+typedef struct BucketItem BucketItem;
+struct BucketItem {
   u64 hash;
   char *key;
+  u32 key_length;
   void *value;
-  bucket_item *next;
+  BucketItem *next;
 };
 
 // TODO(noah):
 // Use a stretchy buffer instead of a linked list?
 // And then maybe split the hashes into a seperate buffer (data-oriented design)
 
-struct hashmap {
+struct HashMap {
   // Each bucket is a linked list of (u64 hash, char *key, void *value)
   // where the keys all have the same hash
-  bucket_item *buckets[NUM_BUCKETS];
+  BucketItem *buckets[NUM_BUCKETS];
 };
 
-u64 hash(char *str) { // TODO
+u64 HashMap_hash(char *str, u32 key_length) { // TODO
   u64 res = 0;
-  for (char c = *str; c != '\0'; c = *(++str)) {
-    res += c;
+  for (int i = 0; i < key_length; i++) {
+    res += str[i];
   }
   return res;
 }
 
-hashmap *create_hashmap() {
-  return calloc(sizeof(hashmap), 1);
+HashMap *HashMap_create() {
+  return calloc(sizeof(HashMap), 1);
 }
 
-void destroy_hashmap(hashmap *hm) {
+void HashMap_destroy(HashMap *hm) {
   for (int i = 0; i < NUM_BUCKETS; i++) {
     // TODO
   }
   free(hm);
 }
 
-void hm_insert(hashmap *map, char *key, void *value) {
+void HashMap_insert(HashMap *map, char *key, u32 key_length, void *value) {
   assert(map);
 
-  u64 h = hash(key);
+  u64 h = HashMap_hash(key, key_length);
   u64 index = h % NUM_BUCKETS;
-  bucket_item *current_item = map->buckets[index];
+  BucketItem *current_item = map->buckets[index];
   while (current_item->next != NULL) {
-    if (current_item->hash == h && strcmp(key, current_item->key) == 0) {
+    if (current_item->hash == h && strncmp(key, current_item->key, MIN(key_length, current_item->key_length)) == 0) {
       free(current_item->value);
       current_item->value = value;
       return; // Key already exists
@@ -61,29 +59,30 @@ void hm_insert(hashmap *map, char *key, void *value) {
     current_item = current_item->next;
   }
 
-  if (current_item->hash == h && strcmp(key, current_item->key) == 0) {
+  if (current_item->hash == h && strncmp(key, current_item->key, MIN(key_length, current_item->key_length)) == 0) {
     free(current_item->value);
     current_item->value = value;
     return; // Key already exists
   }
 
-  current_item->next = malloc(sizeof(bucket_item));
+  current_item->next = malloc(sizeof(BucketItem));
   current_item->next->hash = h;
-  current_item->next->key = key; // TODO: Copy?
+  current_item->next->key = key;
+  current_item->next->key_length = key_length;
   current_item->next->value = value;
   current_item->next->next = NULL;
 }
 
-void hm_delete(hashmap *map, char *key) {
+void HashMap_delete(HashMap *map, char *key, u32 key_length) {
   assert(map);
 
-  u64 h = hash(key);
+  u64 h = HashMap_hash(key, key_length);
   u64 index = h % NUM_BUCKETS;
 
-  bucket_item *current_item = map->buckets[index];
-  bucket_item *prev_item = NULL;
+  BucketItem *current_item = map->buckets[index];
+  BucketItem *prev_item = NULL;
   while (current_item != NULL) {
-    if (current_item->hash == h && strcmp(key, current_item->key) == 0) {
+    if (current_item->hash == h && strncmp(key, current_item->key, MIN(key_length, current_item->key_length)) == 0) {
       if (prev_item == NULL) {
         map->buckets[index] = current_item->next;
       } else {
@@ -99,14 +98,14 @@ void hm_delete(hashmap *map, char *key) {
   }
 }
 
-void *hm_get(hashmap *map, char *key) {
+void *HashMap_get(HashMap *map, char *key, u32 key_length) {
   assert(map);
-  u64 h = hash(key);
+  u64 h = HashMap_hash(key, key_length);
   u64 index = h % NUM_BUCKETS;
 
-  bucket_item *current_item = map->buckets[index];
+  BucketItem *current_item = map->buckets[index];
   for (; current_item != NULL; current_item = current_item->next) {
-    if (current_item->hash == h && strcmp(key, current_item->key) == 0) {
+    if (current_item->hash == h && strncmp(key, current_item->key, MIN(key_length, current_item->key_length)) == 0) {
       return current_item->value;
     }
   }

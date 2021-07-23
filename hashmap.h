@@ -1,16 +1,18 @@
 #ifndef HASHMAP_H
 #define HASHMAP_H
 
-typedef struct hashmap hashmap;
+#include "common.h"
 
-hashmap *create_hashmap();
+typedef struct HashMap HashMap;
 
-void destroy_hashmap(hashmap *hm);
+HashMap *HashMap_create();
 
-void hm_insert(hashmap *map, char *key, void *value);
+void HashMap_destroy(HashMap *hm);
 
-void hm_delete(hashmap *map, char *key);
+void HashMap_insert(HashMap *map, char *key, u32 key_length, void *value);
 
-void *hm_get(hashmap *map, char *key);
+void HashMap_delete(HashMap *map, char *key, u32 key_length);
+
+void *HashMap_get(HashMap *map, char *key, u32 key_length);
 
 #endif
