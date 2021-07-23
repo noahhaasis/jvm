@@ -140,6 +140,7 @@ typedef enum {
   ireturn       = 172,
   return_void   = 177,
   getstatic     = 178,
+  putstatic     = 179,
   invokevirtual = 182,
   invokespecial = 183,
   invokestatic  = 184,

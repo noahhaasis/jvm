@@ -312,6 +312,7 @@ ClassFile *parse_class_file(char *filename) {
 
   printf("bytes read: %d; file-size: %ld\n", data_index, stat.st_size);
 
+  munmap(data, stat.st_size);
   close(fd); // close after the mmap?
   
   return class_file;
