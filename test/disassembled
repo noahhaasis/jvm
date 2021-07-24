@@ -1,6 +1,6 @@
-Classfile /home/haschisch/Projects/cl/Main.class
-  Last modified 19.07.2021; size 667 bytes
-  SHA-256 checksum fe7fef3a9f144edab94f44f242781b515345d47ff91317bf4069f6f77986ff97
+Classfile /home/haschisch/Projects/cl/test/Main.class
+  Last modified 24.07.2021; size 735 bytes
+  SHA-256 checksum 3b3f3be040b7dbc41fb185125d98d7394d21b45348939e070cc5536822ffb974
   Compiled from "Main.java"
 class Main
   minor version: 0
@@ -8,7 +8,7 @@ class Main
   flags: (0x0020) ACC_SUPER
   this_class: #8                          // Main
   super_class: #2                         // java/lang/Object
-  interfaces: 0, fields: 1, methods: 6, attributes: 1
+  interfaces: 0, fields: 1, methods: 7, attributes: 1
 Constant pool:
    #1 = Methodref          #2.#3          // java/lang/Object."<init>":()V
    #2 = Class              #4             // java/lang/Object
@@ -38,9 +38,10 @@ Constant pool:
   #26 = Utf8               main
   #27 = Utf8               ([Ljava/lang/String;)V
   #28 = Utf8               StackMapTable
-  #29 = Utf8               <clinit>
-  #30 = Utf8               SourceFile
-  #31 = Utf8               Main.java
+  #29 = Utf8               test
+  #30 = Utf8               <clinit>
+  #31 = Utf8               SourceFile
+  #32 = Utf8               Main.java
 {
   public static int MyField;
     descriptor: I
@@ -155,6 +156,22 @@ Constant pool:
       StackMapTable: number_of_entries = 2
         frame_type = 9 /* same */
         frame_type = 1 /* same */
+
+  public static void test();
+    descriptor: ()V
+    flags: (0x0009) ACC_PUBLIC, ACC_STATIC
+    Code:
+      stack=2, locals=0, args_size=0
+         0: getstatic     #20                 // Field MyField:I
+         3: bipush        10
+         5: if_icmple     9
+         8: return
+         9: return
+      LineNumberTable:
+        line 32: 0
+        line 33: 9
+      StackMapTable: number_of_entries = 1
+        frame_type = 9 /* same */
 
   static {};
     descriptor: ()V

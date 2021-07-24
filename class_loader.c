@@ -4,7 +4,6 @@
 typedef struct {
   // Map<String, class>
   HashMap *loaded_classes;
-
 } ClassLoader;
 
 ClassLoader ClassLoader_create() {
@@ -12,18 +11,36 @@ ClassLoader ClassLoader_create() {
 }
 
 void ClassLoader_destroy() {
+  // TODO
 }
+
+typedef struct {
+  code_attribute *code_attr;
+  method_descriptor *descriptor;
+  u16 name_index;
+} Method;
 
 typedef struct Class Class;
 struct Class {
-  // Map<string, method>
+  // Let's keep the original ClassFile around
+  ClassFile *source_class_file;
+
+  // Map<string, Method>
   HashMap *method_map;
+
   // Map<string, field>
   HashMap *field_map;
-
-  Class *super_class;
-  // TODO: constant_pool
 };
+
+Class *Class_from_class_file(ClassFile *class_file) {
+  Class *class = malloc(sizeof(Class)); // TODO
+  class->source_class_file = class_file;
+
+  return class;
+}
+
+// TODO:
+// Class_get_method(char *method_name, u32 method_name_length)
 
 char *filename_from_classname(char *class_name, u32 length) {
   int filename_length = length + 6 + 1;
@@ -45,10 +62,12 @@ Class *load_and_initialize_class(ClassLoader *loader, char *class_name, u32 leng
   ClassFile *class_file = parse_class_file(filename);
   free(filename);
 
-  Class *class = NULL; // TODO
-
+  Class *class = Class_from_class_file(class_file);
 
   HashMap_insert(loader->loaded_classes, class_name, length, class);
+
+  // TODO: Call <clinit>
+
   return class;
 }
 

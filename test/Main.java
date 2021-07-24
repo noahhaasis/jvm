@@ -27,4 +27,8 @@ class Main {
     }
     return fib(i-1) + fib(i-2);
   }
+
+  public static void test() {
+    if (MyField > 10) { return; }
+  }
 }

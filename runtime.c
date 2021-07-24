@@ -1,22 +1,6 @@
 #include "jvm.h"
 #include "buffer.h"
 
-typedef enum {
-  int_t = 1,
-  double_t,
-} parameter_descriptor;
-
-typedef enum {
-  void_t = 0,
-  // ... parameter_descriptor
-} return_descriptor;
-
-typedef struct {
-  u32 all_params_byte_count;
-  parameter_descriptor *parameter_types; /* stretchy buffer */
-  return_descriptor return_type;
-} method_descriptor;
-
 method_descriptor parse_method_descriptor(char *src, int length) {
     /* Grammar:
     MethodDescriptor:
