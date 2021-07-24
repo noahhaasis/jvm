@@ -1,19 +1,7 @@
-#ifndef JVM_H
-#define JVM_H
+#ifndef CLASSFILE_H
+#define CLASSFILE_H
 
 #include "common.h"
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <assert.h>
-
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <stdbool.h>
-
 
 /* NOTE(Noah):
  * Multiple byte values in java class files are always stored in _big-endian order_
@@ -264,11 +252,5 @@ cp_info parse_cp_info(u8 *data, int *out_byte_size /* How many bytes were parsed
 ClassFile *parse_class_file(char *filename);
 
 void free_class_file(ClassFile *class_file);
-
-code_attribute *find_code(ClassFile *class_file, method_info method_info);
-
-method_info find_method(ClassFile *class_file, char *name, u32 name_length);
-
-void execute(ClassFile *class_file, code_attribute method_code);
 
 #endif

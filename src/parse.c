@@ -1,5 +1,14 @@
-#include "jvm.h"
+#include "class_file.h"
+
 #include "buffer.h"
+
+#include <string.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 void pretty_print_constant_tag(u8 tag) {
   switch(tag) {

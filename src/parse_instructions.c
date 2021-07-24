@@ -5,7 +5,7 @@
  * Offsets used by goto instructions are specified by byte and not instruction anyways.
  * This code might be used later for pretty printing or debugging.
  */
-#include "jvm.h"
+#include "runtime.h"
 #include "buffer.h"
 
 typedef struct  {

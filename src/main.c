@@ -8,7 +8,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "jvm.h"
+#include "runtime.h"
 
 int main(int argc, char **argv) {
   if (argc != 2) {

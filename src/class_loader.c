@@ -1,5 +1,8 @@
-#include "jvm.h"
 #include "hashmap.h"
+#include "class_file.h"
+
+#include <stdlib.h>
+#include <string.h>
 
 typedef struct {
   // Map<String, class>

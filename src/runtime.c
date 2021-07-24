@@ -1,5 +1,13 @@
-#include "jvm.h"
+#include "runtime.h"
+
+#include "class_file.h"
 #include "buffer.h"
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+#include <stdbool.h>
 
 method_descriptor parse_method_descriptor(char *src, int length) {
     /* Grammar:
