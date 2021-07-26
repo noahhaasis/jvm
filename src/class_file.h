@@ -98,6 +98,7 @@ typedef struct {
 
 typedef enum {
   iconst        = 2,  /* 2 - 8 ; Push iconst_<n>*/
+  bipush        = 16,
   ldc           = 18,
   iload         = 21,
   aload         = 25,

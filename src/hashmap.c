@@ -66,7 +66,9 @@ void HashMap_insert(HashMap *map, char *key, u32 key_length, void *value) {
   }
 
   while (current_item->next != NULL) {
-    if (current_item->hash == h && strncmp(key, current_item->key, MIN(key_length, current_item->key_length)) == 0) {
+    if (current_item->hash == h &&
+        key_length == current_item->key_length &&
+        strncmp(key, current_item->key, key_length) == 0) {
       free(current_item->value);
       current_item->value = value;
       return; // Key already exists
@@ -74,7 +76,9 @@ void HashMap_insert(HashMap *map, char *key, u32 key_length, void *value) {
     current_item = current_item->next;
   }
 
-  if (current_item->hash == h && strncmp(key, current_item->key, MIN(key_length, current_item->key_length)) == 0) {
+  if (current_item->hash == h &&
+      key_length == current_item->key_length &&
+      strncmp(key, current_item->key, key_length) == 0) {
     free(current_item->value);
     current_item->value = value;
     return; // Key already exists
@@ -92,7 +96,9 @@ void HashMap_delete(HashMap *map, char *key, u32 key_length) {
   BucketItem *current_item = map->buckets[index];
   BucketItem *prev_item = NULL;
   while (current_item != NULL) {
-    if (current_item->hash == h && strncmp(key, current_item->key, MIN(key_length, current_item->key_length)) == 0) {
+    if (current_item->hash == h &&
+        key_length == current_item->key_length &&
+        strncmp(key, current_item->key, key_length) == 0) {
       if (prev_item == NULL) {
         map->buckets[index] = current_item->next;
       } else {
@@ -115,7 +121,9 @@ void *HashMap_get(HashMap *map, char *key, u32 key_length) {
 
   BucketItem *current_item = map->buckets[index];
   for (; current_item != NULL; current_item = current_item->next) {
-    if (current_item->hash == h && strncmp(key, current_item->key, MIN(key_length, current_item->key_length)) == 0) {
+    if (current_item->hash == h &&
+        key_length == current_item->key_length &&
+        strncmp(key, current_item->key, key_length) == 0) {
       return current_item->value;
     }
   }

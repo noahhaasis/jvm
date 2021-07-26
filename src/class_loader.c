@@ -168,7 +168,7 @@ char *filename_from_classname(char *class_name, u32 length) {
 /* Loads a class from it's class file and convert it into its runtime representation.
  * Then execute the intitialization code. (<clinit>)
  */
-Class *load_and_initialize_class(ClassLoader loader, char *class_name, u32 length) {
+Class *load_class(ClassLoader loader, char *class_name, u32 length) {
   char *filename = filename_from_classname(class_name, length);
   ClassFile *class_file = parse_class_file(filename);
   free(filename);
@@ -179,16 +179,13 @@ Class *load_and_initialize_class(ClassLoader loader, char *class_name, u32 lengt
 
   HashMap_insert(loader.loaded_classes, class_name, length, class);
 
-  // TODO: Call <clinit>
-
   return class;
 }
 
-Class *load_and_initialize_class_from_file(
+Class *load_class_from_file(
     ClassLoader loader,
     char *class_name, u32 class_name_length,
     char *filename, u32 filename_length) {
-  // TODO: filename not null terminated
   char *filename_nt = allocate_null_terminated_string(filename, filename_length);
   ClassFile *class_file = parse_class_file(filename_nt);
   free(filename_nt);
@@ -197,8 +194,6 @@ Class *load_and_initialize_class_from_file(
   Class *class = Class_from_class_file(class_file);
 
   HashMap_insert(loader.loaded_classes, class_name, class_name_length, class);
-
-  // TODO: Call <clinit>
 
   return class;
 }

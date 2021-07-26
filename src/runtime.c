@@ -13,10 +13,12 @@ method_info find_method(ClassFile *class_file, char *name, u32 name_length) {
     method_info info = class_file->methods[i];
     cp_info name_constant = class_file->constant_pool[info.name_index - 1];
 
-    if (strncmp(
+    u32 length = name_constant.as.utf8_info.length;
+    if (length == name_length &&
+        strncmp(
           name,
           (const char *)name_constant.as.utf8_info.bytes,
-          MIN(name_constant.as.utf8_info.length, name_length)) == 0) {
+          name_length) == 0) {
       return info;
     }
   }
@@ -61,11 +63,17 @@ void free_frame(frame frame) {
 void execute_main(char *filename) {
   ClassLoader class_loader = ClassLoader_create();
 
-  Class *main_class = load_and_initialize_class_from_file(
+  Class *main_class = load_class_from_file(
       class_loader,
       "Main", 4,// TODO: Classname
       filename, strlen(filename)
     );
+
+  // call <clinit>
+  Method *clinit = HashMap_get(main_class->method_map, "<clinit>", strlen("<clinit>"));
+  execute(class_loader, clinit);
+
+
   Method *main_method = HashMap_get(main_class->method_map, "main", strlen("main")); // TODO
   execute(class_loader, main_method);
   // ClassLoader_destroy(&);
@@ -73,6 +81,8 @@ void execute_main(char *filename) {
 
 
 void execute(ClassLoader class_loader, Method *method) {
+  assert(method);
+
   // TODO(noah): Store the current class?
   frame *frames = NULL;
   /* Current frame */
@@ -89,6 +99,12 @@ void execute(ClassLoader class_loader, Method *method) {
     case 6: case 7: case 8:
     {
       u8 n = bytecode - 3;
+      *f.sp = n;
+      f.sp += 1;
+    } break;
+    case bipush:
+    {
+      u8 n = *(f.pc+offset); offset += 1;
       *f.sp = n;
       f.sp += 1;
     } break;
@@ -191,6 +207,15 @@ void execute(ClassLoader class_loader, Method *method) {
       sb_pop(frames);
       skip_pc_increment = true;
     } break;
+    case putstatic:
+    {
+      u8 indexbyte1 = *(f.pc+offset); offset += 1;
+      u8 indexbyte2 = *(f.pc+offset); offset += 1;
+      u16 index = (indexbyte1 << 8) | indexbyte2;
+
+      // TODO: Field resolution
+      assert(false);
+    } break;
     // TODO: Refactor into macro BINOP
     case imul:
     {
@@ -240,15 +265,13 @@ void execute(ClassLoader class_loader, Method *method) {
           (char *)class_name_constant.as.utf8_info.bytes,
           class_name_constant.as.utf8_info.length);
       if (!class) {
-        class = load_and_initialize_class(
+        class = load_class(
             class_loader,
             (char *)class_name_constant.as.utf8_info.bytes,
             class_name_constant.as.utf8_info.length);
+        // TODO: call <clinit>
       }
 
-      // TODO: Get the class name
-      // Load the class
-      // and then get it's method
       Method *method = HashMap_get(
           class->method_map,
           (char *)method_name_constant.as.utf8_info.bytes,
@@ -284,6 +307,10 @@ void execute(ClassLoader class_loader, Method *method) {
       u8 branchbyte2 = *(f.pc+offset); offset += 1;
 
       offset = (i16)((branchbyte1 << 8) | branchbyte2);
+    } break;
+    case invokespecial:
+    {
+      assert(false);
     } break;
     default: printf("Unhandled instruction with opcode %d\n", bytecode);
     }

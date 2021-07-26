@@ -31,8 +31,8 @@ struct Class {
   HashMap *field_map;
 };
 
-Class *load_and_initialize_class(ClassLoader loader, char *class_name, u32 length);
-Class *load_and_initialize_class_from_file(
+Class *load_class(ClassLoader loader, char *class_name, u32 length);
+Class *load_class_from_file(
     ClassLoader loader,
     char *class_name, u32 class_name_length,
     char *filename, u32 file_name_length);
