@@ -1,6 +1,5 @@
 #include "runtime.h"
 
-#include "class_file.h"
 #include "buffer.h"
 
 #include <stdlib.h>
@@ -8,96 +7,6 @@
 #include <string.h>
 #include <assert.h>
 #include <stdbool.h>
-
-method_descriptor parse_method_descriptor(char *src, int length) {
-    /* Grammar:
-    MethodDescriptor:
-        ( ParameterDescriptor* ) ReturnDescriptor
-
-    ParameterDescriptor:
-        FieldType
-
-    ReturnDescriptor:
-        FieldType
-        VoidDescriptor
-
-    VoidDescriptor:
-        V
-    */
-  method_descriptor descriptor = (method_descriptor){ };
-  parameter_descriptor *params = NULL;
-
-  assert(length >= 3);
-  assert(src[0] == '(');
-
-  int offset = 1;
-  for (; offset < (length - 1) && src[offset] != ')'; ++offset) {
-    switch(src[offset]) {
-    case 'I':
-    {
-      descriptor.all_params_byte_count += 4;
-      sb_push(params, int_t);
-    } break;
-    case 'D':
-    {
-      descriptor.all_params_byte_count += 8;
-      sb_push(params, double_t);
-    } break;
-    default:
-    {
-      printf("Failed to parse parameter type. Rest of signature TODO");
-      assert(0);
-    }
-    }
-  }
-
-  descriptor.parameter_types = params;
-
-  assert(src[offset] == ')');
-
-  ++offset; // Advance past ')';
-
-  switch(src[offset]) {
-  case 'V':
-  {
-    descriptor.return_type = void_t;
-  } break;
-  case 'I':
-  {
-    descriptor.return_type = int_t;
-  } break;
-  case 'D':
-  {
-    descriptor.return_type = double_t;
-  } break;
-  default:
-  {
-      printf("Failed to parse return type. Rest of signature TODO");
-      assert(0);
-  }
-  }
-
-  assert((offset + 1) == length);
-
-  return descriptor;
-}
-
-code_attribute *find_code(ClassFile *class_file, method_info method_info) {
-  for (int i = 0; i < method_info.attributes_count; i++) {
-    attribute_info info = method_info.attributes[i];
-    cp_info name_constant = class_file->constant_pool[info.attribute_name_index-1];
-
-    if (strncmp(
-          "Code",
-          (const char *)name_constant.as.utf8_info.bytes,
-          name_constant.as.utf8_info.length) == 0) {
-      return info.as.code_attribute;
-    }
-  }
-
-  printf("Code attribute not found\n");
-  return NULL;
-}
 
 method_info find_method(ClassFile *class_file, char *name, u32 name_length) {
   for (int i = 0; i < class_file->methods_count; i++) {
@@ -149,10 +58,25 @@ void free_frame(frame frame) {
   if (frame.locals) free(frame.locals);
 }
 
-void execute(ClassFile *class_file, code_attribute entry_method) {
+void execute_main(char *filename) {
+  ClassLoader class_loader = ClassLoader_create();
+
+  Class *main_class = load_and_initialize_class_from_file(
+      class_loader,
+      "Main", 4,// TODO: Classname
+      filename, strlen(filename)
+    );
+  Method *main_method = HashMap_get(main_class->method_map, "main", strlen("main")); // TODO
+  execute(class_loader, main_method);
+  // ClassLoader_destroy(&);
+}
+
+
+void execute(ClassLoader class_loader, Method *method) {
+  // TODO(noah): Store the current class?
   frame *frames = NULL;
   /* Current frame */
-  frame f = create_frame_from_code_attribute(entry_method);
+  frame f = create_frame_from_code_attribute(*method->code_attr);
 
   while (true) { // TODO(noah): Prevent overflows here
     bool skip_pc_increment = false;
@@ -300,28 +224,44 @@ void execute(ClassFile *class_file, code_attribute entry_method) {
       u16 index = (indexbyte1 << 8) | indexbyte2;
 
       u16 name_and_type_index =
-        class_file->constant_pool[index-1].as.methodref_info.name_and_type_index;
+        method->constant_pool[index-1].as.methodref_info.name_and_type_index;
       u16 name_index =
-        class_file->constant_pool[name_and_type_index-1].as.name_and_type_info.name_index;
-      cp_info method_name_constant = class_file->constant_pool[name_index-1];
+        method->constant_pool[name_and_type_index-1].as.name_and_type_info.name_index;
+      cp_info method_name_constant = method->constant_pool[name_index-1];
 
-      method_info method_info = find_method(
-          class_file,
+      u16 class_index =
+        method->constant_pool[index-1].as.methodref_info.class_index;
+      u16 class_name_index =
+        method->constant_pool[class_index-1].as.class_info.name_index;
+      cp_info class_name_constant = method->constant_pool[class_name_index-1];
+
+      Class *class = get_class(
+          class_loader,
+          (char *)class_name_constant.as.utf8_info.bytes,
+          class_name_constant.as.utf8_info.length);
+      if (!class) {
+        class = load_and_initialize_class(
+            class_loader,
+            (char *)class_name_constant.as.utf8_info.bytes,
+            class_name_constant.as.utf8_info.length);
+      }
+
+      // TODO: Get the class name
+      // Load the class
+      // and then get it's method
+      Method *method = HashMap_get(
+          class->method_map,
           (char *)method_name_constant.as.utf8_info.bytes,
           method_name_constant.as.utf8_info.length);
-      code_attribute *method_code = find_code(class_file, method_info);
+
+      code_attribute *method_code = method->code_attr;
 
       // Add the offset now so that the function returns to the next instruction
       // of this frame
       f.pc += offset;
 
       // Pop all args from the stack and store them in locals[] of the new frame
-      cp_info method_descriptor_string =
-        class_file->constant_pool[method_info.descriptor_index-1];
-      method_descriptor method_descriptor =
-        parse_method_descriptor(
-            (char *)method_descriptor_string.as.utf8_info.bytes,
-            method_descriptor_string.as.utf8_info.length);
+      method_descriptor method_descriptor = method->descriptor;
 
       frame new_frame = create_frame_from_code_attribute(*method_code);
 

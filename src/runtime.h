@@ -2,12 +2,10 @@
 #define JVM_H
 
 #include "common.h"
-#include "class_file.h"
+#include "class_loader.h"
 
-code_attribute *find_code(ClassFile *class_file, method_info method_info);
+void execute_main(char *filename);
 
-method_info find_method(ClassFile *class_file, char *name, u32 name_length);
-
-void execute(ClassFile *class_file, code_attribute method_code);
+void execute(ClassLoader class_loader, Method *entry_method);
 
 #endif

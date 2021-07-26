@@ -46,10 +46,10 @@ int main(int argc, char **argv) {
     }
   }
 
-  method_info fac_info = find_method(class_file, "main", 4);
-  code_attribute *code_attr = find_code(class_file, fac_info);
-  assert(code_attr != NULL);
-  execute(class_file, *code_attr);
+  // method_info fac_info = find_method(class_file, "main", 4);
+  // code_attribute *code_attr = find_code(class_file, fac_info);
+  // assert(code_attr != NULL);
+  execute_main(argv[1]);
 
   free_class_file(class_file);
 

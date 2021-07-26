@@ -44,12 +44,27 @@ void HashMap_destroy(HashMap *hm) {
   free(hm);
 }
 
+BucketItem *BucketItem_create(u64 hash, char *key, u32 key_length, void *value) {
+    BucketItem *item = malloc(sizeof(BucketItem));
+    item->hash = hash;
+    item->key = key;
+    item->key_length = key_length;
+    item->value = value;
+    item->next = NULL;
+    return item;
+}
+
 void HashMap_insert(HashMap *map, char *key, u32 key_length, void *value) {
   assert(map);
 
   u64 h = HashMap_hash(key, key_length);
   u64 index = h % NUM_BUCKETS;
   BucketItem *current_item = map->buckets[index];
+  if (current_item == NULL) {
+    map->buckets[index] = BucketItem_create(h, key, key_length, value);
+    return;
+  }
+
   while (current_item->next != NULL) {
     if (current_item->hash == h && strncmp(key, current_item->key, MIN(key_length, current_item->key_length)) == 0) {
       free(current_item->value);
@@ -65,12 +80,7 @@ void HashMap_insert(HashMap *map, char *key, u32 key_length, void *value) {
     return; // Key already exists
   }
 
-  current_item->next = malloc(sizeof(BucketItem));
-  current_item->next->hash = h;
-  current_item->next->key = key;
-  current_item->next->key_length = key_length;
-  current_item->next->value = value;
-  current_item->next->next = NULL;
+  current_item->next = BucketItem_create(h, key, key_length, value);
 }
 
 void HashMap_delete(HashMap *map, char *key, u32 key_length) {
