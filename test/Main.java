@@ -1,5 +1,5 @@
 class Main {
-  public static int MyField = -12;
+  public static int MyField = 5;
 
   public static void main(String[] args) {
     five();
@@ -18,7 +18,7 @@ class Main {
   }
 
   public static int five() {
-    return 5;
+    return MyField;
   }
 
   public static int fib(int i) {

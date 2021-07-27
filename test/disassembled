@@ -1,6 +1,6 @@
 Classfile /home/haschisch/Projects/cl/test/Main.class
-  Last modified 24.07.2021; size 735 bytes
-  SHA-256 checksum 3b3f3be040b7dbc41fb185125d98d7394d21b45348939e070cc5536822ffb974
+  Last modified 27.07.2021; size 736 bytes
+  SHA-256 checksum 052448fe9896ff7c02a41aeefefbace186480379a1b0cbe82575c960992058e0
   Compiled from "Main.java"
 class Main
   minor version: 0
@@ -122,8 +122,8 @@ Constant pool:
     flags: (0x0009) ACC_PUBLIC, ACC_STATIC
     Code:
       stack=1, locals=0, args_size=0
-         0: iconst_5
-         1: ireturn
+         0: getstatic     #20                 // Field MyField:I
+         3: ireturn
       LineNumberTable:
         line 21: 0
 
@@ -178,9 +178,9 @@ Constant pool:
     flags: (0x0008) ACC_STATIC
     Code:
       stack=1, locals=0, args_size=0
-         0: bipush        -12
-         2: putstatic     #20                 // Field MyField:I
-         5: return
+         0: iconst_5
+         1: putstatic     #20                 // Field MyField:I
+         4: return
       LineNumberTable:
         line 2: 0
 }

@@ -201,3 +201,13 @@ Class *load_class_from_file(
 Class *get_class(ClassLoader loader, char *class_name, u32 length) {
   return HashMap_get(loader.loaded_classes, class_name, length);
 }
+
+void set_static(Class *class, char *field_name, u32 length, u32 value) {
+  // Note: Since the only values we store at the moment are 32 bits
+  // we can just store them instead of the pointer.
+  HashMap_insert(class->field_map, field_name, length, (void *)value);
+}
+
+u32 get_static(Class *class, char *field_name, u32 length) {
+  return (u32) HashMap_get(class->field_map, field_name, length);
+}

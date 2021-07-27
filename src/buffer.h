@@ -43,7 +43,7 @@ typedef struct {
   __buf_header(buffer)->length -= 1;
 
 #define sb_is_empty(buffer) \
-  ((buffer == NULL) ? 0 : sb_length(buffer) == 0)
+  ((buffer == NULL) || sb_length(buffer) == 0)
 
 #define sb_free(buffer) \
   do { \

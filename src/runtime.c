@@ -37,14 +37,14 @@ typedef struct {
   u32 *stack;
   u32 *sp;
   u32 *locals;
-} frame;
+} Frame;
 
-frame create_frame_from_code_attribute(code_attribute code_attr) {
+Frame create_frame_from_code_attribute(code_attribute code_attr) {
   u32 *stack =
     code_attr.max_stack > 0
     ? malloc(code_attr.max_stack * sizeof(u32))
     : NULL;
-  return (frame) {
+  return (Frame) {
     .pc = code_attr.code,
     .stack = stack,
     .sp = stack,
@@ -55,7 +55,7 @@ frame create_frame_from_code_attribute(code_attribute code_attr) {
   };
 }
 
-void free_frame(frame frame) {
+void free_frame(Frame frame) {
   if (frame.stack)  free(frame.stack);
   if (frame.locals) free(frame.locals);
 }
@@ -79,14 +79,54 @@ void execute_main(char *filename) {
   // ClassLoader_destroy(&);
 }
 
+// Inline?
+intern inline u32 f_pop(Frame *f) {
+  f->sp -= 1;
+  return *f->sp;
+}
+
+intern inline void f_push(Frame *f, u32 value) {
+  *f->sp = value;
+  f->sp += 1;
+}
+
+intern Class *load_class_and_field_name_from_field_ref(
+    ClassLoader class_loader, Method *method, u16 index,
+    cp_info *out_field_name) {
+      // Field resolution
+    cp_info field_ref_info = method->constant_pool[index-1];
+    cp_info class_info = method->constant_pool[
+      field_ref_info.as.field_ref_info.class_index-1];
+    cp_info class_name = method->constant_pool[
+      class_info.as.class_info.name_index-1];
+    Class *class = get_class(
+        class_loader,
+        (char *)class_name.as.utf8_info.bytes, 
+        class_name.as.utf8_info.length);
+    if (!class) {
+      // load and initialize class
+      load_class(
+        class_loader, 
+        (char *)class_name.as.utf8_info.bytes, 
+        class_name.as.utf8_info.length);
+      // TODO: Initialize
+    }
+
+    cp_info name_and_type = method->constant_pool[
+      field_ref_info.as.field_ref_info.name_and_type_index-1];
+    *out_field_name = method->constant_pool[
+      name_and_type.as.name_and_type_info.name_index-1];
+
+    return class;
+}
 
 void execute(ClassLoader class_loader, Method *method) {
   assert(method);
 
   // TODO(noah): Store the current class?
-  frame *frames = NULL;
+  Frame *frames = NULL;
   /* Current frame */
-  frame f = create_frame_from_code_attribute(*method->code_attr);
+  Frame f = create_frame_from_code_attribute(*method->code_attr);
 
   while (true) { // TODO(noah): Prevent overflows here
     bool skip_pc_increment = false;
@@ -203,9 +243,27 @@ void execute(ClassLoader class_loader, Method *method) {
 #endif
       // TODO: Use sb_pop and make it actually return the poped value
       free_frame(f);
-      f = frames[sb_length(frames)];
+      f = frames[sb_length(frames) - 1];
       sb_pop(frames);
       skip_pc_increment = true;
+    } break;
+    case getstatic:
+    {
+      u8 indexbyte1 = *(f.pc+offset); offset += 1;
+      u8 indexbyte2 = *(f.pc+offset); offset += 1;
+      u16 index = (indexbyte1 << 8) | indexbyte2;
+
+      cp_info field_name;
+      Class *class = load_class_and_field_name_from_field_ref(
+          class_loader, method, index, &field_name);
+
+      u32 value = get_static(
+          class,
+          (char *)field_name.as.utf8_info.bytes, 
+          field_name.as.utf8_info.length);
+    
+      f_push(&f, value);
+
     } break;
     case putstatic:
     {
@@ -213,8 +271,18 @@ void execute(ClassLoader class_loader, Method *method) {
       u8 indexbyte2 = *(f.pc+offset); offset += 1;
       u16 index = (indexbyte1 << 8) | indexbyte2;
 
-      // TODO: Field resolution
-      assert(false);
+      u32 value = f_pop(&f);
+
+      cp_info field_name;
+
+      Class *class = load_class_and_field_name_from_field_ref(
+          class_loader, method, index, &field_name);
+
+      set_static(
+          class,
+          (char *)field_name.as.utf8_info.bytes,
+          field_name.as.utf8_info.length,
+          value);
     } break;
     // TODO: Refactor into macro BINOP
     case imul:
@@ -286,7 +354,7 @@ void execute(ClassLoader class_loader, Method *method) {
       // Pop all args from the stack and store them in locals[] of the new frame
       method_descriptor method_descriptor = method->descriptor;
 
-      frame new_frame = create_frame_from_code_attribute(*method_code);
+      Frame new_frame = create_frame_from_code_attribute(*method_code);
 
       // Copy all args from the callers stack to the callees local vars
       memcpy(

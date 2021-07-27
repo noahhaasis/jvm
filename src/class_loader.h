@@ -4,12 +4,22 @@
 #include "hashmap.h"
 #include "class_file.h"
 
+typedef struct Class Class;
+
 typedef struct {
   // Map<String, class>
   HashMap *loaded_classes;
 } ClassLoader;
 
 ClassLoader ClassLoader_create();
+
+Class *load_class(ClassLoader loader, char *class_name, u32 length);
+Class *load_class_from_file(
+    ClassLoader loader,
+    char *class_name, u32 class_name_length,
+    char *filename, u32 file_name_length);
+
+Class *get_class(ClassLoader loader, char *class_name, u32 length);
 
 typedef struct {
   cp_info *constant_pool;
@@ -19,7 +29,6 @@ typedef struct {
   u16 name_index; // 0 based
 } Method;
 
-typedef struct Class Class;
 struct Class {
   // Let's keep the original ClassFile around
   ClassFile *source_class_file; // TODO: Actually see what we need
@@ -31,12 +40,7 @@ struct Class {
   HashMap *field_map;
 };
 
-Class *load_class(ClassLoader loader, char *class_name, u32 length);
-Class *load_class_from_file(
-    ClassLoader loader,
-    char *class_name, u32 class_name_length,
-    char *filename, u32 file_name_length);
-
-Class *get_class(ClassLoader loader, char *class_name, u32 length);
+void set_static(Class *class, char *field_name, u32 length, u32 value);
+u32 get_static(Class *class, char *field_name, u32 length);
 
 #endif
