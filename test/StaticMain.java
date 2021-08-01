@@ -1,19 +1,10 @@
 class Main {
-  public int three;
-
-  public Main() {
-    this.three = 3;
-  }
-
   public static int MyField = 5;
 
   public static void main(String[] args) {
     five();
     fac(5);
     fib(5);
-
-    Main main = new Main();
-    main.getThree();
   }
 
   public static int fac(int n) {
@@ -28,10 +19,6 @@ class Main {
 
   public static int five() {
     return MyField;
-  }
-
-  public int getThree() {
-    return this.three;
   }
 
   public static int fib(int i) {

@@ -43,12 +43,10 @@ method_descriptor parse_method_descriptor(char *src, int length) {
     switch(src[offset]) {
     case 'I':
     {
-      descriptor.all_params_byte_count += 4;
       sb_push(params, int_t);
     } break;
     case 'D':
     {
-      descriptor.all_params_byte_count += 8;
       sb_push(params, double_t);
     } break;
     case '[':

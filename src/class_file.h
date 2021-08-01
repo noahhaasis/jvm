@@ -37,7 +37,7 @@ typedef struct {
       struct {
         u16 class_index;
         u16 name_and_type_index;
-      } field_ref_info;
+      } fieldref_info;
 
       struct {
         u16 class_index;
@@ -106,7 +106,9 @@ typedef enum {
   aload_n       = 42, /* 42 - 45 */
   istore        = 54,
   istore_n      = 59, /* 59 - 62 */
+  astore_n      = 75, /* 75 - 78 */
   pop           = 87,
+  dup_instr     = 89, // damn you <unistd.h> for taking that beautiful name
   iadd          = 96,
   isub          = 100,
   imul          = 104,
@@ -120,9 +122,12 @@ typedef enum {
   return_void   = 177,
   getstatic     = 178,
   putstatic     = 179,
+  getfield      = 180,
+  putfield      = 181,
   invokevirtual = 182,
   invokespecial = 183,
   invokestatic  = 184,
+  new           = 187,
   undefined,
 } instruction_type;
 
@@ -192,7 +197,6 @@ typedef enum {
 } return_descriptor;
 
 typedef struct {
-  u32 all_params_byte_count;
   parameter_descriptor *parameter_types; /* stretchy buffer */
   return_descriptor return_type;
 } method_descriptor;

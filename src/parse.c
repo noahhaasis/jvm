@@ -216,8 +216,8 @@ cp_info parse_cp_info(u8 *data, int *out_byte_size /* How many bytes were parsed
   } break;
   case CONSTANT_Fieldref:
   {
-    info.as.field_ref_info.class_index = __builtin_bswap16(*((u16 *)(data+1)));
-    info.as.field_ref_info.name_and_type_index = __builtin_bswap16(*((u16 *)(data+3)));
+    info.as.fieldref_info.class_index = __builtin_bswap16(*((u16 *)(data+1)));
+    info.as.fieldref_info.name_and_type_index = __builtin_bswap16(*((u16 *)(data+3)));
     *out_byte_size = 5;
   } break;
   case CONSTANT_String:

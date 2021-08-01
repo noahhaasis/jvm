@@ -1,6 +1,6 @@
 Classfile /home/haschisch/Projects/cl/test/Main.class
-  Last modified 27.07.2021; size 736 bytes
-  SHA-256 checksum 052448fe9896ff7c02a41aeefefbace186480379a1b0cbe82575c960992058e0
+  Last modified 01.08.2021; size 865 bytes
+  SHA-256 checksum 7563ba37d06a3d2030cfbe42659c7216a18f965f390c46443109fed747968114
   Compiled from "Main.java"
 class Main
   minor version: 0
@@ -8,7 +8,7 @@ class Main
   flags: (0x0020) ACC_SUPER
   this_class: #8                          // Main
   super_class: #2                         // java/lang/Object
-  interfaces: 0, fields: 1, methods: 7, attributes: 1
+  interfaces: 0, fields: 2, methods: 8, attributes: 1
 Constant pool:
    #1 = Methodref          #2.#3          // java/lang/Object."<init>":()V
    #2 = Class              #4             // java/lang/Object
@@ -16,67 +16,92 @@ Constant pool:
    #4 = Utf8               java/lang/Object
    #5 = Utf8               <init>
    #6 = Utf8               ()V
-   #7 = Methodref          #8.#9          // Main.five:()I
+   #7 = Fieldref           #8.#9          // Main.three:I
    #8 = Class              #10            // Main
-   #9 = NameAndType        #11:#12        // five:()I
+   #9 = NameAndType        #11:#12        // three:I
   #10 = Utf8               Main
-  #11 = Utf8               five
-  #12 = Utf8               ()I
-  #13 = Methodref          #8.#14         // Main.fac:(I)I
-  #14 = NameAndType        #15:#16        // fac:(I)I
-  #15 = Utf8               fac
-  #16 = Utf8               (I)I
-  #17 = Methodref          #8.#18         // Main.fib:(I)I
-  #18 = NameAndType        #19:#16        // fib:(I)I
-  #19 = Utf8               fib
-  #20 = Fieldref           #8.#21         // Main.MyField:I
-  #21 = NameAndType        #22:#23        // MyField:I
-  #22 = Utf8               MyField
-  #23 = Utf8               I
-  #24 = Utf8               Code
-  #25 = Utf8               LineNumberTable
-  #26 = Utf8               main
-  #27 = Utf8               ([Ljava/lang/String;)V
-  #28 = Utf8               StackMapTable
-  #29 = Utf8               test
-  #30 = Utf8               <clinit>
-  #31 = Utf8               SourceFile
-  #32 = Utf8               Main.java
+  #11 = Utf8               three
+  #12 = Utf8               I
+  #13 = Methodref          #8.#14         // Main.five:()I
+  #14 = NameAndType        #15:#16        // five:()I
+  #15 = Utf8               five
+  #16 = Utf8               ()I
+  #17 = Methodref          #8.#18         // Main.fac:(I)I
+  #18 = NameAndType        #19:#20        // fac:(I)I
+  #19 = Utf8               fac
+  #20 = Utf8               (I)I
+  #21 = Methodref          #8.#22         // Main.fib:(I)I
+  #22 = NameAndType        #23:#20        // fib:(I)I
+  #23 = Utf8               fib
+  #24 = Methodref          #8.#3          // Main."<init>":()V
+  #25 = Methodref          #8.#26         // Main.getThree:()I
+  #26 = NameAndType        #27:#16        // getThree:()I
+  #27 = Utf8               getThree
+  #28 = Fieldref           #8.#29         // Main.MyField:I
+  #29 = NameAndType        #30:#12        // MyField:I
+  #30 = Utf8               MyField
+  #31 = Utf8               Code
+  #32 = Utf8               LineNumberTable
+  #33 = Utf8               main
+  #34 = Utf8               ([Ljava/lang/String;)V
+  #35 = Utf8               StackMapTable
+  #36 = Utf8               test
+  #37 = Utf8               <clinit>
+  #38 = Utf8               SourceFile
+  #39 = Utf8               Main.java
 {
+  public int three;
+    descriptor: I
+    flags: (0x0001) ACC_PUBLIC
+
   public static int MyField;
     descriptor: I
     flags: (0x0009) ACC_PUBLIC, ACC_STATIC
 
-  Main();
+  public Main();
     descriptor: ()V
-    flags: (0x0000)
+    flags: (0x0001) ACC_PUBLIC
     Code:
-      stack=1, locals=1, args_size=1
+      stack=2, locals=1, args_size=1
          0: aload_0
          1: invokespecial #1                  // Method java/lang/Object."<init>":()V
-         4: return
+         4: aload_0
+         5: iconst_3
+         6: putfield      #7                  // Field three:I
+         9: return
       LineNumberTable:
-        line 1: 0
+        line 4: 0
+        line 5: 4
+        line 6: 9
 
   public static void main(java.lang.String[]);
     descriptor: ([Ljava/lang/String;)V
     flags: (0x0009) ACC_PUBLIC, ACC_STATIC
     Code:
-      stack=1, locals=1, args_size=1
-         0: invokestatic  #7                  // Method five:()I
+      stack=2, locals=2, args_size=1
+         0: invokestatic  #13                 // Method five:()I
          3: pop
          4: iconst_5
-         5: invokestatic  #13                 // Method fac:(I)I
+         5: invokestatic  #17                 // Method fac:(I)I
          8: pop
          9: iconst_5
-        10: invokestatic  #17                 // Method fib:(I)I
+        10: invokestatic  #21                 // Method fib:(I)I
         13: pop
-        14: return
+        14: new           #8                  // class Main
+        17: dup
+        18: invokespecial #24                 // Method "<init>":()V
+        21: astore_1
+        22: aload_1
+        23: invokevirtual #25                 // Method getThree:()I
+        26: pop
+        27: return
       LineNumberTable:
-        line 5: 0
-        line 6: 4
-        line 7: 9
-        line 8: 14
+        line 11: 0
+        line 12: 4
+        line 13: 9
+        line 15: 14
+        line 16: 22
+        line 17: 27
 
   public static int fac(int);
     descriptor: (I)I
@@ -103,12 +128,12 @@ Constant pool:
         25: iload_1
         26: ireturn
       LineNumberTable:
-        line 11: 0
-        line 13: 6
-        line 14: 8
-        line 15: 15
-        line 14: 19
-        line 17: 25
+        line 20: 0
+        line 22: 6
+        line 23: 8
+        line 24: 15
+        line 23: 19
+        line 26: 25
       StackMapTable: number_of_entries = 3
         frame_type = 6 /* same */
         frame_type = 253 /* append */
@@ -122,10 +147,21 @@ Constant pool:
     flags: (0x0009) ACC_PUBLIC, ACC_STATIC
     Code:
       stack=1, locals=0, args_size=0
-         0: getstatic     #20                 // Field MyField:I
+         0: getstatic     #28                 // Field MyField:I
          3: ireturn
       LineNumberTable:
-        line 21: 0
+        line 30: 0
+
+  public int getThree();
+    descriptor: ()I
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=1, locals=1, args_size=1
+         0: aload_0
+         1: getfield      #7                  // Field three:I
+         4: ireturn
+      LineNumberTable:
+        line 34: 0
 
   public static int fib(int);
     descriptor: (I)I
@@ -142,17 +178,17 @@ Constant pool:
         11: iload_0
         12: iconst_1
         13: isub
-        14: invokestatic  #17                 // Method fib:(I)I
+        14: invokestatic  #21                 // Method fib:(I)I
         17: iload_0
         18: iconst_2
         19: isub
-        20: invokestatic  #17                 // Method fib:(I)I
+        20: invokestatic  #21                 // Method fib:(I)I
         23: iadd
         24: ireturn
       LineNumberTable:
-        line 25: 0
-        line 26: 9
-        line 28: 11
+        line 38: 0
+        line 39: 9
+        line 41: 11
       StackMapTable: number_of_entries = 2
         frame_type = 9 /* same */
         frame_type = 1 /* same */
@@ -162,14 +198,14 @@ Constant pool:
     flags: (0x0009) ACC_PUBLIC, ACC_STATIC
     Code:
       stack=2, locals=0, args_size=0
-         0: getstatic     #20                 // Field MyField:I
+         0: getstatic     #28                 // Field MyField:I
          3: bipush        10
          5: if_icmple     9
          8: return
          9: return
       LineNumberTable:
-        line 32: 0
-        line 33: 9
+        line 45: 0
+        line 46: 9
       StackMapTable: number_of_entries = 1
         frame_type = 9 /* same */
 
@@ -179,9 +215,9 @@ Constant pool:
     Code:
       stack=1, locals=0, args_size=0
          0: iconst_5
-         1: putstatic     #20                 // Field MyField:I
+         1: putstatic     #28                 // Field MyField:I
          4: return
       LineNumberTable:
-        line 2: 0
+        line 8: 0
 }
 SourceFile: "Main.java"
