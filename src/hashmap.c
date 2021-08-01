@@ -1,16 +1,15 @@
 #include "hashmap.h"
 
+#include <string.h>
 #include <assert.h>
 #include <stdlib.h>
-#include <string.h>
 
 #define NUM_BUCKETS 64
 
 typedef struct BucketItem BucketItem;
 struct BucketItem {
   u64 hash;
-  char *key;
-  u32 key_length;
+  String key;
   void *value;
   BucketItem *next;
 };
@@ -25,10 +24,10 @@ struct HashMap {
   BucketItem *buckets[NUM_BUCKETS];
 };
 
-u64 HashMap_hash(char *str, u32 key_length) { // TODO
+u64 HashMap_hash(String key) { // TODO
   u64 res = 0;
-  for (int i = 0; i < key_length; i++) {
-    res += str[i];
+  for (int i = 0; i < key.length; i++) {
+    res += key.bytes[i];
   }
   return res;
 }
@@ -44,31 +43,30 @@ void HashMap_destroy(HashMap *hm) {
   free(hm);
 }
 
-BucketItem *BucketItem_create(u64 hash, char *key, u32 key_length, void *value) {
+BucketItem *BucketItem_create(u64 hash, String key, void *value) {
     BucketItem *item = malloc(sizeof(BucketItem));
     item->hash = hash;
     item->key = key;
-    item->key_length = key_length;
     item->value = value;
     item->next = NULL;
     return item;
 }
 
-void HashMap_insert(HashMap *map, char *key, u32 key_length, void *value) {
+void HashMap_insert(HashMap *map, String key, void *value) {
   assert(map);
 
-  u64 h = HashMap_hash(key, key_length);
+  u64 h = HashMap_hash(key);
   u64 index = h % NUM_BUCKETS;
   BucketItem *current_item = map->buckets[index];
   if (current_item == NULL) {
-    map->buckets[index] = BucketItem_create(h, key, key_length, value);
+    map->buckets[index] = BucketItem_create(h, key, value);
     return;
   }
 
   while (current_item->next != NULL) {
     if (current_item->hash == h &&
-        key_length == current_item->key_length &&
-        strncmp(key, current_item->key, key_length) == 0) {
+        key.length == current_item->key.length &&
+        strncmp(key.bytes, current_item->key.bytes, key.length) == 0) {
       free(current_item->value);
       current_item->value = value;
       return; // Key already exists
@@ -77,28 +75,28 @@ void HashMap_insert(HashMap *map, char *key, u32 key_length, void *value) {
   }
 
   if (current_item->hash == h &&
-      key_length == current_item->key_length &&
-      strncmp(key, current_item->key, key_length) == 0) {
+      key.length == current_item->key.length &&
+      strncmp(key.bytes, current_item->key.bytes, key.length) == 0) {
     free(current_item->value);
     current_item->value = value;
     return; // Key already exists
   }
 
-  current_item->next = BucketItem_create(h, key, key_length, value);
+  current_item->next = BucketItem_create(h, key, value);
 }
 
-void HashMap_delete(HashMap *map, char *key, u32 key_length) {
+void HashMap_delete(HashMap *map, String key) {
   assert(map);
 
-  u64 h = HashMap_hash(key, key_length);
+  u64 h = HashMap_hash(key);
   u64 index = h % NUM_BUCKETS;
 
   BucketItem *current_item = map->buckets[index];
   BucketItem *prev_item = NULL;
   while (current_item != NULL) {
     if (current_item->hash == h &&
-        key_length == current_item->key_length &&
-        strncmp(key, current_item->key, key_length) == 0) {
+        key.length == current_item->key.length &&
+        strncmp(key.bytes, current_item->key.bytes, key.length) == 0) {
       if (prev_item == NULL) {
         map->buckets[index] = current_item->next;
       } else {
@@ -114,16 +112,16 @@ void HashMap_delete(HashMap *map, char *key, u32 key_length) {
   }
 }
 
-void *HashMap_get(HashMap *map, char *key, u32 key_length) {
+void *HashMap_get(HashMap *map, String key) {
   assert(map);
-  u64 h = HashMap_hash(key, key_length);
+  u64 h = HashMap_hash(key);
   u64 index = h % NUM_BUCKETS;
 
   BucketItem *current_item = map->buckets[index];
   for (; current_item != NULL; current_item = current_item->next) {
     if (current_item->hash == h &&
-        key_length == current_item->key_length &&
-        strncmp(key, current_item->key, key_length) == 0) {
+        key.length == current_item->key.length &&
+        strncmp(key.bytes, current_item->key.bytes, key.length) == 0) {
       return current_item->value;
     }
   }

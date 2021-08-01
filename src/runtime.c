@@ -65,16 +65,26 @@ void execute_main(char *filename) {
 
   Class *main_class = load_class_from_file(
       class_loader,
-      "Main", 4,// TODO: Classname
-      filename, strlen(filename)
+      (String) { .bytes = "Main", .length = 4 },// TODO: Classname
+      (String) { .bytes = filename, .length = strlen(filename) }
     );
 
   // call <clinit>
-  Method *clinit = HashMap_get(main_class->method_map, "<clinit>", strlen("<clinit>"));
+  Method *clinit = HashMap_get(
+      main_class->method_map,
+      (String) {
+        .bytes = "<clinit>",
+        .length = strlen("<clinit>")
+      });
   execute(class_loader, clinit);
 
 
-  Method *main_method = HashMap_get(main_class->method_map, "main", strlen("main")); // TODO
+  Method *main_method = HashMap_get(
+      main_class->method_map, 
+      (String) {
+        .bytes = "main",
+        .length = strlen("main")
+      }); // TODO
   execute(class_loader, main_method);
   // ClassLoader_destroy(&);
 }
@@ -100,14 +110,18 @@ intern Class *load_class_and_field_name_from_field_ref(
       class_info.as.class_info.name_index-1];
     Class *class = get_class(
         class_loader,
-        (char *)class_name.as.utf8_info.bytes, 
-        class_name.as.utf8_info.length);
+        (String) {
+          .bytes = (char *)class_name.as.utf8_info.bytes, 
+          .length = class_name.as.utf8_info.length
+        });
     if (!class) {
       // load and initialize class
       load_class(
         class_loader, 
-        (char *)class_name.as.utf8_info.bytes, 
-        class_name.as.utf8_info.length);
+        (String) {
+          .bytes = (char *)class_name.as.utf8_info.bytes, 
+          .length = class_name.as.utf8_info.length
+        });
       // TODO: Initialize
     }
 
@@ -125,13 +139,17 @@ Class *load_class_from_constant_pool(ClassLoader class_loader, cp_info *constant
   
   Class *class = get_class(
       class_loader,
-      (char *)class_name.as.utf8_info.bytes,
-      class_name.as.utf8_info.length);
+      (String) {
+        .bytes = (char *)class_name.as.utf8_info.bytes,
+        .length = class_name.as.utf8_info.length
+      });
   if (!class) {
     class = load_class( 
       class_loader,
-      (char *)class_name.as.utf8_info.bytes,
-      class_name.as.utf8_info.length);
+      (String) {
+        .bytes = (char *)class_name.as.utf8_info.bytes,
+        .length = class_name.as.utf8_info.length
+      });
   }
 
   return class;
@@ -304,8 +322,10 @@ void execute(ClassLoader class_loader, Method *method) {
 
       u32 value = get_static(
           class,
-          (char *)field_name.as.utf8_info.bytes, 
-          field_name.as.utf8_info.length);
+          (String) {
+            .bytes = (char *)field_name.as.utf8_info.bytes, 
+            .length = field_name.as.utf8_info.length
+          });
     
       f_push(&f, value);
 
@@ -325,8 +345,10 @@ void execute(ClassLoader class_loader, Method *method) {
 
       set_static(
           class,
-          (char *)field_name.as.utf8_info.bytes,
-          field_name.as.utf8_info.length,
+          (String) {
+            .bytes = (char *)field_name.as.utf8_info.bytes,
+            .length = field_name.as.utf8_info.length
+          },
           value);
     } break;
     // TODO: Refactor into macro BINOP
@@ -375,20 +397,26 @@ void execute(ClassLoader class_loader, Method *method) {
 
       Class *class = get_class(
           class_loader,
-          (char *)class_name_constant.as.utf8_info.bytes,
-          class_name_constant.as.utf8_info.length);
+          (String) {
+            .bytes = (char *)class_name_constant.as.utf8_info.bytes,
+            .length = class_name_constant.as.utf8_info.length
+          });
       if (!class) {
         class = load_class(
             class_loader,
-            (char *)class_name_constant.as.utf8_info.bytes,
-            class_name_constant.as.utf8_info.length);
+            (String) {
+              .bytes = (char *)class_name_constant.as.utf8_info.bytes,
+              .length = class_name_constant.as.utf8_info.length
+            });
         // TODO: call <clinit>
       }
 
       Method *method = HashMap_get(
           class->method_map,
-          (char *)method_name_constant.as.utf8_info.bytes,
-          method_name_constant.as.utf8_info.length);
+          (String) {
+            .bytes = (char *)method_name_constant.as.utf8_info.bytes,
+            .length = method_name_constant.as.utf8_info.length
+          });
 
       code_attribute *method_code = method->code_attr;
 
@@ -438,8 +466,10 @@ void execute(ClassLoader class_loader, Method *method) {
 
       u64 value = *((u64 *)HashMap_get(
           this_ptr->fields,
-          (char *)fieldname.as.utf8_info.bytes,
-          fieldname.as.utf8_info.length));
+          (String) {
+            .bytes = (char *)fieldname.as.utf8_info.bytes,
+            .length = fieldname.as.utf8_info.length
+          }));
 
       f_push(&f, value);
     } break;
@@ -463,8 +493,10 @@ void execute(ClassLoader class_loader, Method *method) {
 
       HashMap_insert(
           this_ptr->fields,
-          (char *)fieldname.as.utf8_info.bytes,
-          fieldname.as.utf8_info.length,
+          (String) {
+            .bytes = (char *)fieldname.as.utf8_info.bytes,
+            .length = fieldname.as.utf8_info.length
+          },
           heap_value);
     } break;
     case invokevirtual:
@@ -483,8 +515,10 @@ void execute(ClassLoader class_loader, Method *method) {
       cp_info class_name = method->constant_pool[class_info.as.class_info.name_index-1];
       Class *class = get_class(
           class_loader,
-          (char *)class_name.as.utf8_info.bytes, 
-          class_name.as.utf8_info.length);
+          (String) {
+            .bytes = (char *)class_name.as.utf8_info.bytes, 
+            .length = class_name.as.utf8_info.length
+          });
       if (!class) {
         // TODO: Loas class
         break;
@@ -497,8 +531,10 @@ void execute(ClassLoader class_loader, Method *method) {
         name_and_type.as.name_and_type_info.name_index-1];
       Method *method = HashMap_get(
           class->method_map, 
-          (char *)name_info.as.utf8_info.bytes,
-          name_info.as.utf8_info.length);
+          (String) {
+            .bytes = (char *)name_info.as.utf8_info.bytes,
+            .length = name_info.as.utf8_info.length
+          });
      
       assert(sb_length(method->descriptor.parameter_types) == 0); // Assert no args for now
 
@@ -526,8 +562,10 @@ void execute(ClassLoader class_loader, Method *method) {
       cp_info class_name = method->constant_pool[class_info.as.class_info.name_index-1];
       Class *class = get_class(
           class_loader,
-          (char *)class_name.as.utf8_info.bytes, 
-          class_name.as.utf8_info.length);
+          (String) {
+            .bytes = (char *)class_name.as.utf8_info.bytes, 
+            .length = class_name.as.utf8_info.length
+          });
       if (!class) {
         // TODO: Loas class
         break;
@@ -540,8 +578,10 @@ void execute(ClassLoader class_loader, Method *method) {
         name_and_type.as.name_and_type_info.name_index-1];
       Method *method = HashMap_get(
           class->method_map, 
-          (char *)name_info.as.utf8_info.bytes,
-          name_info.as.utf8_info.length);
+          (String) {
+            .bytes = (char *)name_info.as.utf8_info.bytes,
+            .length = name_info.as.utf8_info.length
+          });
      
       assert(sb_length(method->descriptor.parameter_types) == 0); // Assert no args for now
 

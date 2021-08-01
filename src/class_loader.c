@@ -17,7 +17,7 @@ void ClassLoader_destroy() {
   // TODO
 }
 
-method_descriptor parse_method_descriptor(char *src, int length) {
+method_descriptor parse_method_descriptor(String src) {
     /* Grammar:
     MethodDescriptor:
         ( ParameterDescriptor* ) ReturnDescriptor
@@ -35,12 +35,12 @@ method_descriptor parse_method_descriptor(char *src, int length) {
   method_descriptor descriptor = (method_descriptor){ };
   parameter_descriptor *params = NULL;
 
-  assert(length >= 3);
-  assert(src[0] == '(');
+  assert(src.length >= 3);
+  assert(src.bytes[0] == '(');
 
   int offset = 1;
-  for (; offset < (length - 1) && src[offset] != ')'; ++offset) {
-    switch(src[offset]) {
+  for (; offset < (src.length - 1) && src.bytes[offset] != ')'; ++offset) {
+    switch(src.bytes[offset]) {
     case 'I':
     {
       sb_push(params, int_t);
@@ -64,11 +64,11 @@ method_descriptor parse_method_descriptor(char *src, int length) {
 
   descriptor.parameter_types = params;
 
-  assert(src[offset] == ')');
+  assert(src.bytes[offset] == ')');
 
   ++offset; // Advance past ')';
 
-  switch(src[offset]) {
+  switch(src.bytes[offset]) {
   case 'V':
   {
     descriptor.return_type = void_t;
@@ -88,16 +88,9 @@ method_descriptor parse_method_descriptor(char *src, int length) {
   }
   }
 
-  assert((offset + 1) == length);
+  assert((offset + 1) == src.length);
 
   return descriptor;
-}
-
-char *allocate_null_terminated_string(char *src, u32 length) {
-  char *dest = malloc(length + 1);
-  memcpy(dest, src, length);
-  dest[length] = '\0';
-  return dest;
 }
 
 code_attribute *find_code(cp_info *constant_pool, method_info method_info) {
@@ -133,15 +126,19 @@ Class *Class_from_class_file(ClassFile *class_file) {
 
     cp_info descriptor_string_constant = class_file->constant_pool[info.descriptor_index-1];
     method->descriptor = parse_method_descriptor(
-        (char *)descriptor_string_constant.as.utf8_info.bytes,
-        descriptor_string_constant.as.utf8_info.length);
+        (String) {
+          .bytes = (char *)descriptor_string_constant.as.utf8_info.bytes,
+          .length = descriptor_string_constant.as.utf8_info.length
+        });
     method->code_attr = find_code(class_file->constant_pool, info);
 
     cp_info method_name_constant = class_file->constant_pool[method->name_index];
     HashMap_insert(
         class->method_map,
-        (char *)method_name_constant.as.utf8_info.bytes,
-        method_name_constant.as.utf8_info.length,
+        (String) {
+          .bytes = (char *)method_name_constant.as.utf8_info.bytes,
+          .length = method_name_constant.as.utf8_info.length
+        },
         method);
   }
 
@@ -151,13 +148,13 @@ Class *Class_from_class_file(ClassFile *class_file) {
 // TODO:
 // Class_get_method(char *method_name, u32 method_name_length)
 
-char *filename_from_classname(char *class_name, u32 length) {
-  int filename_length = length + 6 + 1;
+char *filename_from_classname(String classname) {
+  int filename_length = classname.length + 6 + 1;
   char *file_extension = ".class";
   char *filename = malloc(filename_length);
 
-  memcpy(filename, class_name, length);
-  memcpy(filename+length, file_extension, 6);
+  memcpy(filename, classname.bytes, classname.length);
+  memcpy(filename + classname.length, file_extension, 6);
   filename[filename_length-1] = '\0';
 
   return filename;
@@ -166,46 +163,44 @@ char *filename_from_classname(char *class_name, u32 length) {
 /* Loads a class from it's class file and convert it into its runtime representation.
  * Then execute the intitialization code. (<clinit>)
  */
-Class *load_class(ClassLoader loader, char *class_name, u32 length) {
-  char *filename = filename_from_classname(class_name, length);
+Class *load_class(ClassLoader loader, String classname) {
+  char *filename = filename_from_classname(classname);
   ClassFile *class_file = parse_class_file(filename);
   free(filename);
 
   if (!class_file) return NULL;
 
   Class *class = Class_from_class_file(class_file);
-
-  HashMap_insert(loader.loaded_classes, class_name, length, class);
+  HashMap_insert(loader.loaded_classes, classname, class);
 
   return class;
 }
 
-Class *load_class_from_file(
-    ClassLoader loader,
-    char *class_name, u32 class_name_length,
-    char *filename, u32 filename_length) {
-  char *filename_nt = allocate_null_terminated_string(filename, filename_length);
+Class *load_class_from_file(ClassLoader loader, String classname, String filename) {
+  char *filename_nt = String_to_null_terminated(filename);
   ClassFile *class_file = parse_class_file(filename_nt);
   free(filename_nt);
   if (!class_file) return NULL;
 
   Class *class = Class_from_class_file(class_file);
 
-  HashMap_insert(loader.loaded_classes, class_name, class_name_length, class);
+  HashMap_insert(loader.loaded_classes, classname, class);
 
   return class;
 }
 
-Class *get_class(ClassLoader loader, char *class_name, u32 length) {
-  return HashMap_get(loader.loaded_classes, class_name, length);
+Class *get_class(ClassLoader loader, String classname) {
+  return HashMap_get(loader.loaded_classes, classname);
 }
 
-void set_static(Class *class, char *field_name, u32 length, u32 value) {
+void set_static(Class *class, String fieldname, u32 value) {
   // Note: Since the only values we store at the moment are 32 bits
   // we can just store them instead of the pointer.
-  HashMap_insert(class->field_map, field_name, length, (void *)value);
+  //
+  // FIXME: insert may try to free these values. Heap allocate for now and write a non owning map later
+  HashMap_insert(class->field_map, fieldname, (void *)value);
 }
 
-u32 get_static(Class *class, char *field_name, u32 length) {
-  return (u32) HashMap_get(class->field_map, field_name, length);
+u32 get_static(Class *class, String fieldname) {
+  return (u32) HashMap_get(class->field_map, fieldname);
 }

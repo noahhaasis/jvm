@@ -4,8 +4,8 @@
 #include "common.h"
 
 typedef struct {
-  u32 size;
-  u8 *bytes;
+  u32 length;
+  char *bytes;
 } String;
 
 char *String_to_null_terminated(String str);

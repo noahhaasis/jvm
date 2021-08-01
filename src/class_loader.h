@@ -13,13 +13,10 @@ typedef struct {
 
 ClassLoader ClassLoader_create();
 
-Class *load_class(ClassLoader loader, char *class_name, u32 length);
-Class *load_class_from_file(
-    ClassLoader loader,
-    char *class_name, u32 class_name_length,
-    char *filename, u32 file_name_length);
+Class *load_class(ClassLoader loader, String classname);
+Class *load_class_from_file(ClassLoader loader, String classname, String filename);
 
-Class *get_class(ClassLoader loader, char *class_name, u32 length);
+Class *get_class(ClassLoader loader, String classname);
 
 typedef struct {
   cp_info *constant_pool;
@@ -40,7 +37,7 @@ struct Class {
   HashMap *field_map;
 };
 
-void set_static(Class *class, char *field_name, u32 length, u32 value);
-u32 get_static(Class *class, char *field_name, u32 length);
+void set_static(Class *class, String fieldname, u32 value);
+u32 get_static(Class *class, String fieldname);
 
 #endif
