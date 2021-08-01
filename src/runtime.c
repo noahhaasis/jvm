@@ -178,9 +178,7 @@ void execute(ClassLoader class_loader, Method *method) {
   Frame f = create_frame_from_code_attribute(*method->code_attr);
 
   while (true) { // TODO(noah): Prevent overflows here
-    bool skip_pc_increment = false;
-    i32 offset = 1;
-    u8 bytecode = *f.pc;
+    u8 bytecode = *f.pc++;
 
     switch(bytecode) {
     /* iconst_<n> */
@@ -193,7 +191,7 @@ void execute(ClassLoader class_loader, Method *method) {
     } break;
     case bipush:
     {
-      u8 n = *(f.pc+offset); offset += 1;
+      u8 n = *(f.pc++);
       *f.sp = n;
       f.sp += 1;
     } break;
@@ -229,50 +227,54 @@ void execute(ClassLoader class_loader, Method *method) {
     // TODO: Macro ifCOND(op) ...
     case ifeq:
     {
-      u8 branchbyte1 = *(f.pc+offset); offset += 1;
-      u8 branchbyte2 = *(f.pc+offset); offset += 1;
+      u8 branchbyte1 = *(f.pc++);
+      u8 branchbyte2 = *(f.pc++);
 
       f.sp -= 1;
       u32 value = *f.sp;
 
       if (value == 0) { // Branch succeeds
-        offset = (i16)((branchbyte1 << 8) | branchbyte2);
+        int offset = (i16)((branchbyte1 << 8) | branchbyte2);
+        f.pc += offset - 3;
       }
     } break;
     case ifne:
     {
-      u8 branchbyte1 = *(f.pc+offset); offset += 1;
-      u8 branchbyte2 = *(f.pc+offset); offset += 1;
+      u8 branchbyte1 = *(f.pc++);
+      u8 branchbyte2 = *(f.pc++);
 
       f.sp -= 1;
       u32 value = *f.sp;
 
       if (value != 0) { // Branch succeeds
-        offset = (i16)((branchbyte1 << 8) | branchbyte2);
+        int offset = (i16)((branchbyte1 << 8) | branchbyte2);
+        f.pc += offset - 3;
       }
     } break;
     case if_icmpgt:
     {
-      u8 branchbyte1 = *(f.pc+offset); offset += 1;
-      u8 branchbyte2 = *(f.pc+offset); offset += 1;
+      u8 branchbyte1 = *(f.pc++);
+      u8 branchbyte2 = *(f.pc++);
 
       f.sp -= 1; u32 value2 = *f.sp;
       f.sp -= 1; u32 value1 = *f.sp;
 
       if (value1 > value2) { // Branch succeeds
-        offset = (i16) ((branchbyte1 << 8) | branchbyte2);
+        int offset = (i16) ((branchbyte1 << 8) | branchbyte2);
+        f.pc += offset - 3;
       }
     } break;
     case if_icmpne:
     {
-      u8 branchbyte1 = *(f.pc+offset); offset += 1;
-      u8 branchbyte2 = *(f.pc+offset); offset += 1;
+      u8 branchbyte1 = *(f.pc++);
+      u8 branchbyte2 = *(f.pc++);
 
       f.sp -= 1; u32 value2 = *f.sp;
       f.sp -= 1; u32 value1 = *f.sp;
 
       if (value1 != value2) { // Branch succeeds
-        offset = (i16) ((branchbyte1 << 8) | branchbyte2);
+        int offset = (i16) ((branchbyte1 << 8) | branchbyte2);
+        f.pc += offset - 3;
       }
     } break;
     case ireturn:
@@ -293,7 +295,6 @@ void execute(ClassLoader class_loader, Method *method) {
       // push the return value
       *f.sp = value;
       f.sp++;
-      skip_pc_increment = true;
     } break;
     case return_void:
     {
@@ -308,12 +309,11 @@ void execute(ClassLoader class_loader, Method *method) {
       free_frame(f);
       f = frames[sb_length(frames) - 1];
       sb_pop(frames);
-      skip_pc_increment = true;
     } break;
     case getstatic:
     {
-      u8 indexbyte1 = *(f.pc+offset); offset += 1;
-      u8 indexbyte2 = *(f.pc+offset); offset += 1;
+      u8 indexbyte1 = *(f.pc++);
+      u8 indexbyte2 = *(f.pc++);
       u16 index = (indexbyte1 << 8) | indexbyte2;
 
       cp_info field_name;
@@ -332,8 +332,8 @@ void execute(ClassLoader class_loader, Method *method) {
     } break;
     case putstatic:
     {
-      u8 indexbyte1 = *(f.pc+offset); offset += 1;
-      u8 indexbyte2 = *(f.pc+offset); offset += 1;
+      u8 indexbyte1 = *(f.pc++);
+      u8 indexbyte2 = *(f.pc++);
       u16 index = (indexbyte1 << 8) | indexbyte2;
 
       u32 value = f_pop(&f);
@@ -372,15 +372,15 @@ void execute(ClassLoader class_loader, Method *method) {
     } break;
     case iinc:
     {
-      u8 index = *(f.pc + offset); offset += 1;
-      i8 const_value = *(f.pc + offset); offset += 1;
+      u8 index = *(f.pc++);
+      i8 const_value = *(f.pc++);
 
       f.locals[index] += const_value;
     } break;
     case invokestatic:
     {
-      u8 indexbyte1 = *(f.pc+offset); offset += 1;
-      u8 indexbyte2 = *(f.pc+offset); offset += 1;
+      u8 indexbyte1 = *(f.pc++);
+      u8 indexbyte2 = *(f.pc++);
       u16 index = (indexbyte1 << 8) | indexbyte2;
 
       u16 name_and_type_index =
@@ -420,10 +420,6 @@ void execute(ClassLoader class_loader, Method *method) {
 
       code_attribute *method_code = method->code_attr;
 
-      // Add the offset now so that the function returns to the next instruction
-      // of this frame
-      f.pc += offset;
-
       // Pop all args from the stack and store them in locals[] of the new frame
       method_descriptor method_descriptor = method->descriptor;
 
@@ -440,20 +436,19 @@ void execute(ClassLoader class_loader, Method *method) {
 
       sb_push(frames, f);
       f = new_frame;
-
-      skip_pc_increment = true;
     } break;
     case goto_instr:
     {
-      u8 branchbyte1 = *(f.pc+offset); offset += 1;
-      u8 branchbyte2 = *(f.pc+offset); offset += 1;
+      u8 branchbyte1 = *(f.pc++);
+      u8 branchbyte2 = *(f.pc++);
 
-      offset = (i16)((branchbyte1 << 8) | branchbyte2);
+      int offset = (i16)((branchbyte1 << 8) | branchbyte2);
+      f.pc += offset - 3;
     } break;
     case getfield:
     {
-      u8 indexbyte1 = *(f.pc+offset); offset += 1;
-      u8 indexbyte2 = *(f.pc+offset); offset += 1;
+      u8 indexbyte1 = *(f.pc++);
+      u8 indexbyte2 = *(f.pc++);
       u16 index = (indexbyte1 << 8) | indexbyte2;
  
       Object *this_ptr = (Object *)f_pop(&f);
@@ -475,8 +470,8 @@ void execute(ClassLoader class_loader, Method *method) {
     } break;
     case putfield:
     {
-      u8 indexbyte1 = *(f.pc+offset); offset += 1;
-      u8 indexbyte2 = *(f.pc+offset); offset += 1;
+      u8 indexbyte1 = *(f.pc++);
+      u8 indexbyte2 = *(f.pc++);
       u16 index = (indexbyte1 << 8) | indexbyte2;
  
       u64 value = f_pop(&f);
@@ -503,8 +498,8 @@ void execute(ClassLoader class_loader, Method *method) {
     {
       // https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-6.html#jvms-6.5.invokevirtual
       // TODO: copied from invokespecial => refactor
-      u8 indexbyte1 = *(f.pc+offset); offset += 1;
-      u8 indexbyte2 = *(f.pc+offset); offset += 1;
+      u8 indexbyte1 = *(f.pc++);
+      u8 indexbyte2 = *(f.pc++);
       u16 index = (indexbyte1 << 8) | indexbyte2;
  
       Object *this_ptr = (Object *)f_pop(&f);
@@ -542,16 +537,13 @@ void execute(ClassLoader class_loader, Method *method) {
       Frame new_frame = create_frame_from_code_attribute(*method->code_attr);
       new_frame.locals[0] = (u64) this_ptr;
 
-      f.pc += offset;
       sb_push(frames, f);
       f = new_frame;
-
-      skip_pc_increment = true;
     } break;
     case invokespecial:
     {
-      u8 indexbyte1 = *(f.pc+offset); offset += 1;
-      u8 indexbyte2 = *(f.pc+offset); offset += 1;
+      u8 indexbyte1 = *(f.pc++);
+      u8 indexbyte2 = *(f.pc++);
       u16 index = (indexbyte1 << 8) | indexbyte2;
 
       Object *this_ptr = (Object *)f_pop(&f);
@@ -589,16 +581,13 @@ void execute(ClassLoader class_loader, Method *method) {
       Frame new_frame = create_frame_from_code_attribute(*method->code_attr);
       new_frame.locals[0] = (u64) this_ptr;
 
-      f.pc += offset;
       sb_push(frames, f);
       f = new_frame;
-
-      skip_pc_increment = true;
     } break;
     case new:
     {
-      u8 indexbyte1 = *(f.pc+offset); offset += 1;
-      u8 indexbyte2 = *(f.pc+offset); offset += 1;
+      u8 indexbyte1 = *(f.pc++);
+      u8 indexbyte2 = *(f.pc++);
       u16 index = (indexbyte1 << 8) | indexbyte2;
 
       Class *class = load_class_from_constant_pool(class_loader, method->constant_pool, index);
@@ -611,8 +600,6 @@ void execute(ClassLoader class_loader, Method *method) {
     } break;
     default: printf("Unhandled instruction with opcode %d\n", bytecode);
     }
-
-    if (!skip_pc_increment) { f.pc += offset; }
   }
 
   printf("Returning without a \"return\" statement\n");
