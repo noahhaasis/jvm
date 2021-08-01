@@ -169,6 +169,12 @@ Object *Object_create(Class *class) {
   return obj;
 }
 
+intern inline i16 read_immediate_i16(Frame *f) {
+  u8 branchbyte1 = *(f->pc++);
+  u8 branchbyte2 = *(f->pc++);
+  return (i16)((branchbyte1 << 8) | branchbyte2);
+}
+
 void execute(ClassLoader class_loader, Method *method) {
   assert(method);
 
@@ -227,60 +233,49 @@ void execute(ClassLoader class_loader, Method *method) {
     // TODO: Macro ifCOND(op) ...
     case ifeq:
     {
-      u8 branchbyte1 = *(f.pc++);
-      u8 branchbyte2 = *(f.pc++);
+      int offset = read_immediate_i16(&f);
 
       f.sp -= 1;
       u32 value = *f.sp;
 
       if (value == 0) { // Branch succeeds
-        int offset = (i16)((branchbyte1 << 8) | branchbyte2);
         f.pc += offset - 3;
       }
     } break;
     case ifne:
     {
-      u8 branchbyte1 = *(f.pc++);
-      u8 branchbyte2 = *(f.pc++);
-
-      f.sp -= 1;
-      u32 value = *f.sp;
+      int offset = read_immediate_i16(&f);
+      u32 value = f_pop(&f);
 
       if (value != 0) { // Branch succeeds
-        int offset = (i16)((branchbyte1 << 8) | branchbyte2);
         f.pc += offset - 3;
       }
     } break;
     case if_icmpgt:
     {
-      u8 branchbyte1 = *(f.pc++);
-      u8 branchbyte2 = *(f.pc++);
+      int offset = read_immediate_i16(&f);
 
-      f.sp -= 1; u32 value2 = *f.sp;
-      f.sp -= 1; u32 value1 = *f.sp;
+      u32 value2 = f_pop(&f);
+      u32 value1 = f_pop(&f);
 
       if (value1 > value2) { // Branch succeeds
-        int offset = (i16) ((branchbyte1 << 8) | branchbyte2);
         f.pc += offset - 3;
       }
     } break;
     case if_icmpne:
     {
-      u8 branchbyte1 = *(f.pc++);
-      u8 branchbyte2 = *(f.pc++);
+      int offset = read_immediate_i16(&f);
 
-      f.sp -= 1; u32 value2 = *f.sp;
-      f.sp -= 1; u32 value1 = *f.sp;
+      u32 value2 = f_pop(&f);
+      u32 value1 = f_pop(&f);
 
       if (value1 != value2) { // Branch succeeds
-        int offset = (i16) ((branchbyte1 << 8) | branchbyte2);
         f.pc += offset - 3;
       }
     } break;
     case ireturn:
     {
-      f.sp -= 1;
-      u32 value = *f.sp;
+      u32 value = f_pop(&f);
       printf("Returning int %d\n", value);
       if (sb_is_empty(frames)) {
         goto exit;
@@ -293,8 +288,7 @@ void execute(ClassLoader class_loader, Method *method) {
       sb_pop(frames);
 
       // push the return value
-      *f.sp = value;
-      f.sp++;
+      f_push(&f, value);
     } break;
     case return_void:
     {
@@ -312,9 +306,7 @@ void execute(ClassLoader class_loader, Method *method) {
     } break;
     case getstatic:
     {
-      u8 indexbyte1 = *(f.pc++);
-      u8 indexbyte2 = *(f.pc++);
-      u16 index = (indexbyte1 << 8) | indexbyte2;
+      u16 index = read_immediate_i16(&f);
 
       cp_info field_name;
       Class *class = load_class_and_field_name_from_field_ref(
@@ -332,9 +324,7 @@ void execute(ClassLoader class_loader, Method *method) {
     } break;
     case putstatic:
     {
-      u8 indexbyte1 = *(f.pc++);
-      u8 indexbyte2 = *(f.pc++);
-      u16 index = (indexbyte1 << 8) | indexbyte2;
+      u16 index = read_immediate_i16(&f);
 
       u32 value = f_pop(&f);
 
@@ -379,9 +369,7 @@ void execute(ClassLoader class_loader, Method *method) {
     } break;
     case invokestatic:
     {
-      u8 indexbyte1 = *(f.pc++);
-      u8 indexbyte2 = *(f.pc++);
-      u16 index = (indexbyte1 << 8) | indexbyte2;
+      u16 index = read_immediate_i16(&f);
 
       u16 name_and_type_index =
         method->constant_pool[index-1].as.methodref_info.name_and_type_index;
@@ -439,17 +427,13 @@ void execute(ClassLoader class_loader, Method *method) {
     } break;
     case goto_instr:
     {
-      u8 branchbyte1 = *(f.pc++);
-      u8 branchbyte2 = *(f.pc++);
+      int offset = read_immediate_i16(&f);
 
-      int offset = (i16)((branchbyte1 << 8) | branchbyte2);
       f.pc += offset - 3;
     } break;
     case getfield:
     {
-      u8 indexbyte1 = *(f.pc++);
-      u8 indexbyte2 = *(f.pc++);
-      u16 index = (indexbyte1 << 8) | indexbyte2;
+      u16 index = read_immediate_i16(&f);
  
       Object *this_ptr = (Object *)f_pop(&f);
 
@@ -470,9 +454,7 @@ void execute(ClassLoader class_loader, Method *method) {
     } break;
     case putfield:
     {
-      u8 indexbyte1 = *(f.pc++);
-      u8 indexbyte2 = *(f.pc++);
-      u16 index = (indexbyte1 << 8) | indexbyte2;
+      u16 index = read_immediate_i16(&f);
  
       u64 value = f_pop(&f);
       Object *this_ptr = (Object *)f_pop(&f);
@@ -498,9 +480,7 @@ void execute(ClassLoader class_loader, Method *method) {
     {
       // https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-6.html#jvms-6.5.invokevirtual
       // TODO: copied from invokespecial => refactor
-      u8 indexbyte1 = *(f.pc++);
-      u8 indexbyte2 = *(f.pc++);
-      u16 index = (indexbyte1 << 8) | indexbyte2;
+      u16 index = read_immediate_i16(&f);
  
       Object *this_ptr = (Object *)f_pop(&f);
 
@@ -542,9 +522,7 @@ void execute(ClassLoader class_loader, Method *method) {
     } break;
     case invokespecial:
     {
-      u8 indexbyte1 = *(f.pc++);
-      u8 indexbyte2 = *(f.pc++);
-      u16 index = (indexbyte1 << 8) | indexbyte2;
+      u16 index = read_immediate_i16(&f);
 
       Object *this_ptr = (Object *)f_pop(&f);
 
@@ -586,9 +564,7 @@ void execute(ClassLoader class_loader, Method *method) {
     } break;
     case new:
     {
-      u8 indexbyte1 = *(f.pc++);
-      u8 indexbyte2 = *(f.pc++);
-      u16 index = (indexbyte1 << 8) | indexbyte2;
+      u16 index = read_immediate_i16(&f);
 
       Class *class = load_class_from_constant_pool(class_loader, method->constant_pool, index);
       Object *obj = Object_create(class);
