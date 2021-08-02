@@ -15,6 +15,7 @@ int main(int argc, char **argv) {
     return -1;
   }
 
+  /*
   ClassFile *class_file = parse_class_file(argv[1]);
   if (!class_file) {
     printf("Failed to parse class file \"%s\"\n", argv[1]);
@@ -44,13 +45,14 @@ int main(int argc, char **argv) {
       printf("source file name: \"%.*s\"\n", constant.as.utf8_info.length, constant.as.utf8_info.bytes);
     }
   }
+  */
 
   // method_info fac_info = find_method(class_file, "main", 4);
   // code_attribute *code_attr = find_code(class_file, fac_info);
   // assert(code_attr != NULL);
-  execute_main(argv[1]);
+  // free_class_file(class_file);
 
-  free_class_file(class_file);
+  execute_main(argv[1]);
 
   return 0;
 }

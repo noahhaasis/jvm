@@ -11,9 +11,14 @@ class Main {
     five();
     fac(5);
     fib(5);
+    two();
 
     Main main = new Main();
     main.getThree();
+  }
+
+  public static int two() {
+    return Two.TWO;
   }
 
   public static int fac(int n) {
@@ -39,9 +44,5 @@ class Main {
       return 1;
     }
     return fib(i-1) + fib(i-2);
-  }
-
-  public static void test() {
-    if (MyField > 10) { return; }
   }
 }

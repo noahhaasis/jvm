@@ -2,14 +2,17 @@
 
 #include "buffer.h"
 
+#include <dirent.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
 
-ClassLoader ClassLoader_create() {
+ClassLoader ClassLoader_create(char **classpath, u64 num_paths) {
   return (ClassLoader) {
-    .loaded_classes = HashMap_create()
+    .classpath = classpath,
+    .loaded_classes = HashMap_create(),
+    .num_paths = num_paths
   };
 }
 
@@ -145,45 +148,60 @@ Class *Class_from_class_file(ClassFile *class_file) {
   return class;
 }
 
-// TODO:
-// Class_get_method(char *method_name, u32 method_name_length)
-
 char *filename_from_classname(String classname) {
-  int filename_length = classname.length + 6 + 1;
   char *file_extension = ".class";
+  int filename_length = classname.length + strlen(file_extension) + 1;
   char *filename = malloc(filename_length);
 
   memcpy(filename, classname.bytes, classname.length);
-  memcpy(filename + classname.length, file_extension, 6);
+  memcpy(filename + classname.length, file_extension, strlen(file_extension));
   filename[filename_length-1] = '\0';
 
   return filename;
+}
+
+char *find_classfile_in_classpath(ClassLoader loader, String classname) {
+  char *classfile_name = filename_from_classname(classname);
+
+  for (u32 i = 0; i < loader.num_paths; ++i) {
+    char *dir_path = loader.classpath[i];
+
+    DIR *dirp = opendir(dir_path);
+    struct dirent *file_info = NULL;
+    while ((file_info = readdir(dirp))) {
+      if (strcmp(classfile_name, file_info->d_name) == 0) {
+        u32 dir_len = strlen(dir_path);
+        u32 classfile_name_len = strlen(classfile_name);
+        
+        char *full_path = malloc(dir_len + classfile_name_len + 2);
+        memcpy(full_path, dir_path, dir_len);
+        full_path[dir_len] = '/';
+        memcpy(full_path + dir_len + 1, classfile_name, classfile_name_len);
+        full_path[dir_len+classfile_name_len+1] = '\0';
+
+        return full_path;
+      }
+    }
+  }
+
+  free(classfile_name);
+  return NULL;
 }
 
 /* Loads a class from it's class file and convert it into its runtime representation.
  * Then execute the intitialization code. (<clinit>)
  */
 Class *load_class(ClassLoader loader, String classname) {
-  char *filename = filename_from_classname(classname);
-  ClassFile *class_file = parse_class_file(filename);
-  free(filename);
+  char *path = find_classfile_in_classpath(loader, classname);
+  if (!path) {
+    return NULL;
+  }
+  ClassFile *class_file = parse_class_file(path);
+  free(path);
 
   if (!class_file) return NULL;
 
   Class *class = Class_from_class_file(class_file);
-  HashMap_insert(loader.loaded_classes, classname, class);
-
-  return class;
-}
-
-Class *load_class_from_file(ClassLoader loader, String classname, String filename) {
-  char *filename_nt = String_to_null_terminated(filename);
-  ClassFile *class_file = parse_class_file(filename_nt);
-  free(filename_nt);
-  if (!class_file) return NULL;
-
-  Class *class = Class_from_class_file(class_file);
-
   HashMap_insert(loader.loaded_classes, classname, class);
 
   return class;

@@ -2,6 +2,7 @@
 
 #include "buffer.h"
 
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -60,14 +61,21 @@ void free_frame(Frame frame) {
   if (frame.locals) free(frame.locals);
 }
 
-void execute_main(char *filename) {
-  ClassLoader class_loader = ClassLoader_create();
+void execute_main(char *class_name) {
+  char cwd[256];
+  getcwd(cwd, 256);
+  ClassLoader class_loader = ClassLoader_create(
+      (char *[]){ "/home/haschisch/Projects/cl/test", cwd }, 2);
 
-  Class *main_class = load_class_from_file(
+  Class *main_class = load_class(
       class_loader,
-      (String) { .bytes = "Main", .length = 4 },// TODO: Classname
-      (String) { .bytes = filename, .length = strlen(filename) }
+      String_from_null_terminated(class_name)
     );
+
+  if (!main_class) {
+    fprintf(stderr, "Failed to load class \"%s\"\n", class_name);
+    return;
+  }
 
   // call <clinit>
   Method *clinit = HashMap_get(
@@ -116,12 +124,20 @@ intern Class *load_class_and_field_name_from_field_ref(
         });
     if (!class) {
       // load and initialize class
-      load_class(
+      class = load_class(
         class_loader, 
         (String) {
           .bytes = (char *)class_name.as.utf8_info.bytes, 
           .length = class_name.as.utf8_info.length
         });
+      
+      Method *clinit = HashMap_get(
+        class->method_map,
+        (String) {
+          .bytes = "<clinit>",
+          .length = strlen("<clinit>")
+        });
+      execute(class_loader, clinit);
       // TODO: Initialize
     }
 

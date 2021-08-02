@@ -7,14 +7,17 @@
 typedef struct Class Class;
 
 typedef struct {
+  // List of directories. Not owned
+  char **classpath;
+  u64 num_paths;
+
   // Map<String, class>
   HashMap *loaded_classes;
 } ClassLoader;
 
-ClassLoader ClassLoader_create();
+ClassLoader ClassLoader_create(char **classpath, u64 num_paths);
 
 Class *load_class(ClassLoader loader, String classname);
-Class *load_class_from_file(ClassLoader loader, String classname, String filename);
 
 Class *get_class(ClassLoader loader, String classname);
 
