@@ -189,7 +189,6 @@ char *find_classfile_in_classpath(ClassLoader loader, String classname) {
 }
 
 /* Loads a class from it's class file and convert it into its runtime representation.
- * Then execute the intitialization code. (<clinit>)
  */
 Class *load_class(ClassLoader loader, String classname) {
   char *path = find_classfile_in_classpath(loader, classname);
