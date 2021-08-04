@@ -38,9 +38,11 @@ typedef struct {
   u64 *stack;
   u64 *sp;
   u64 *locals;
+  cp_info *constant_pool;
 } Frame;
 
-Frame create_frame_from_code_attribute(code_attribute code_attr) {
+Frame create_frame_from_method(Method *method) {
+  code_attribute code_attr = *method->code_attr;
   u64 *stack =
     code_attr.max_stack > 0
     ? malloc(code_attr.max_stack * sizeof(u64))
@@ -53,6 +55,7 @@ Frame create_frame_from_code_attribute(code_attribute code_attr) {
       code_attr.max_locals > 0
       ? malloc(code_attr.max_locals * sizeof(u64))
       : NULL,
+    .constant_pool = method->constant_pool,
   };
 }
 
@@ -125,19 +128,21 @@ intern Class *get_or_load_class(ClassLoader class_loader, String classname) {
       .bytes = "<clinit>",
       .length = strlen("<clinit>")
     });
-  execute(class_loader, clinit);
+  if (clinit) {
+    execute(class_loader, clinit);
+  }
 
   return class;
 }
 
 intern Class *load_class_and_field_name_from_field_ref(
-    ClassLoader class_loader, Method *method, u16 index,
+    ClassLoader class_loader, cp_info *constant_pool, u16 index,
     cp_info *out_field_name) {
       // Field resolution
-    cp_info fieldref_info = method->constant_pool[index-1];
-    cp_info class_info = method->constant_pool[
+    cp_info fieldref_info = constant_pool[index-1];
+    cp_info class_info = constant_pool[
       fieldref_info.as.fieldref_info.class_index-1];
-    cp_info class_name = method->constant_pool[
+    cp_info class_name = constant_pool[
       class_info.as.class_info.name_index-1];
       
     Class *class = get_or_load_class(class_loader, (String) {
@@ -145,9 +150,9 @@ intern Class *load_class_and_field_name_from_field_ref(
         .length = class_name.as.utf8_info.length
       });
 
-    cp_info name_and_type = method->constant_pool[
+    cp_info name_and_type = constant_pool[
       fieldref_info.as.fieldref_info.name_and_type_index-1];
-    *out_field_name = method->constant_pool[
+    *out_field_name = constant_pool[
       name_and_type.as.name_and_type_info.name_index-1];
 
     return class;
@@ -194,7 +199,7 @@ void execute(ClassLoader class_loader, Method *method) {
   // TODO(noah): Store the current class?
   Frame *frames = NULL;
   /* Current frame */
-  Frame f = create_frame_from_code_attribute(*method->code_attr);
+  Frame f = create_frame_from_method(method);
 
   while (true) { // TODO(noah): Prevent overflows here
     u8 bytecode = *f.pc++;
@@ -323,7 +328,7 @@ void execute(ClassLoader class_loader, Method *method) {
 
       cp_info field_name;
       Class *class = load_class_and_field_name_from_field_ref(
-          class_loader, method, index, &field_name);
+          class_loader, f.constant_pool, index, &field_name);
 
       u32 value = get_static(
           class,
@@ -344,7 +349,7 @@ void execute(ClassLoader class_loader, Method *method) {
       cp_info field_name;
 
       Class *class = load_class_and_field_name_from_field_ref(
-          class_loader, method, index, &field_name);
+          class_loader, f.constant_pool, index, &field_name);
 
       set_static(
           class,
@@ -385,16 +390,16 @@ void execute(ClassLoader class_loader, Method *method) {
       u16 index = read_immediate_i16(&f);
 
       u16 name_and_type_index =
-        method->constant_pool[index-1].as.methodref_info.name_and_type_index;
+        f.constant_pool[index-1].as.methodref_info.name_and_type_index;
       u16 name_index =
-        method->constant_pool[name_and_type_index-1].as.name_and_type_info.name_index;
-      cp_info method_name_constant = method->constant_pool[name_index-1];
+        f.constant_pool[name_and_type_index-1].as.name_and_type_info.name_index;
+      cp_info method_name_constant = f.constant_pool[name_index-1];
 
       u16 class_index =
-        method->constant_pool[index-1].as.methodref_info.class_index;
+        f.constant_pool[index-1].as.methodref_info.class_index;
       u16 class_name_index =
-        method->constant_pool[class_index-1].as.class_info.name_index;
-      cp_info class_name_constant = method->constant_pool[class_name_index-1];
+        f.constant_pool[class_index-1].as.class_info.name_index;
+      cp_info class_name_constant = f.constant_pool[class_name_index-1];
 
       Class *class = get_or_load_class(
           class_loader,
@@ -415,7 +420,7 @@ void execute(ClassLoader class_loader, Method *method) {
       // Pop all args from the stack and store them in locals[] of the new frame
       method_descriptor method_descriptor = method->descriptor;
 
-      Frame new_frame = create_frame_from_code_attribute(*method_code);
+      Frame new_frame = create_frame_from_method(method);
 
       // Copy all args from the callers stack to the callees local vars
       u64 num_args = sb_length(method_descriptor.parameter_types);
@@ -441,10 +446,10 @@ void execute(ClassLoader class_loader, Method *method) {
  
       Object *this_ptr = (Object *)f_pop(&f);
 
-      cp_info fieldref = method->constant_pool[index-1];
-      cp_info name_and_type = method->constant_pool[
+      cp_info fieldref = f.constant_pool[index-1];
+      cp_info name_and_type = f.constant_pool[
         fieldref.as.fieldref_info.name_and_type_index-1];
-      cp_info fieldname = method->constant_pool[
+      cp_info fieldname = f.constant_pool[
         name_and_type.as.name_and_type_info.name_index-1];
 
       u64 value = *((u64 *)HashMap_get(
@@ -463,10 +468,10 @@ void execute(ClassLoader class_loader, Method *method) {
       u64 value = f_pop(&f);
       Object *this_ptr = (Object *)f_pop(&f);
 
-      cp_info fieldref = method->constant_pool[index-1];
-      cp_info name_and_type = method->constant_pool[
+      cp_info fieldref = f.constant_pool[index-1];
+      cp_info name_and_type = f.constant_pool[
         fieldref.as.fieldref_info.name_and_type_index-1];
-      cp_info fieldname = method->constant_pool[
+      cp_info fieldname = f.constant_pool[
         name_and_type.as.name_and_type_info.name_index-1];
 
       u64 *heap_value = malloc(sizeof(u64));
@@ -485,13 +490,11 @@ void execute(ClassLoader class_loader, Method *method) {
       // https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-6.html#jvms-6.5.invokevirtual
       // TODO: copied from invokespecial => refactor
       u16 index = read_immediate_i16(&f);
- 
-      Object *this_ptr = (Object *)f_pop(&f);
 
       // Load the class
-      cp_info methodref = method->constant_pool[index-1];
-      cp_info class_info = method->constant_pool[methodref.as.methodref_info.class_index-1];
-      cp_info class_name = method->constant_pool[class_info.as.class_info.name_index-1];
+      cp_info methodref = f.constant_pool[index-1];
+      cp_info class_info = f.constant_pool[methodref.as.methodref_info.class_index-1];
+      cp_info class_name = f.constant_pool[class_info.as.class_info.name_index-1];
       Class *class = get_or_load_class(
           class_loader,
           (String) {
@@ -500,13 +503,14 @@ void execute(ClassLoader class_loader, Method *method) {
           });
 
       if (!class) {
+        f.sp -= 1; // Pop this_ptr
         break; // Skip Object.<init> for now
       }
 
       // Get the method
-      cp_info name_and_type = method->constant_pool[
+      cp_info name_and_type = f.constant_pool[
         methodref.as.methodref_info.name_and_type_index-1];
-      cp_info name_info = method->constant_pool[
+      cp_info name_info = f.constant_pool[
         name_and_type.as.name_and_type_info.name_index-1];
       Method *method = HashMap_get(
           class->method_map, 
@@ -515,11 +519,17 @@ void execute(ClassLoader class_loader, Method *method) {
             .length = name_info.as.utf8_info.length
           });
      
-      assert(sb_length(method->descriptor.parameter_types) == 0); // Assert no args for now
+      Frame new_frame = create_frame_from_method(method);
 
-      // Put this_ptr in locals[0]
-      Frame new_frame = create_frame_from_code_attribute(*method->code_attr);
-      new_frame.locals[0] = (u64) this_ptr;
+      // Copy all args + this_ptr from the callers stack to the callees local vars
+      u64 num_args = sb_length(method->descriptor.parameter_types) + 1;
+      memcpy(
+          new_frame.locals,
+          f.sp - num_args,
+          num_args * sizeof(u64));
+
+      // Pop all args
+      f.sp = f.sp - num_args;
 
       sb_push(frames, f);
       f = new_frame;
@@ -528,12 +538,10 @@ void execute(ClassLoader class_loader, Method *method) {
     {
       u16 index = read_immediate_i16(&f);
 
-      Object *this_ptr = (Object *)f_pop(&f);
-
       // Load the class
-      cp_info methodref = method->constant_pool[index-1];
-      cp_info class_info = method->constant_pool[methodref.as.methodref_info.class_index-1];
-      cp_info class_name = method->constant_pool[class_info.as.class_info.name_index-1];
+      cp_info methodref = f.constant_pool[index-1];
+      cp_info class_info = f.constant_pool[methodref.as.methodref_info.class_index-1];
+      cp_info class_name = f.constant_pool[class_info.as.class_info.name_index-1];
       Class *class = get_or_load_class(
           class_loader,
           (String) {
@@ -541,13 +549,14 @@ void execute(ClassLoader class_loader, Method *method) {
             .length = class_name.as.utf8_info.length
           });
       if (!class) {
+        f.sp -= 1; // Pop this_ptr
         break; // TODO
       }
 
       // Get the method
-      cp_info name_and_type = method->constant_pool[
+      cp_info name_and_type = f.constant_pool[
         methodref.as.methodref_info.name_and_type_index-1];
-      cp_info name_info = method->constant_pool[
+      cp_info name_info = f.constant_pool[
         name_and_type.as.name_and_type_info.name_index-1];
       Method *method = HashMap_get(
           class->method_map, 
@@ -556,11 +565,18 @@ void execute(ClassLoader class_loader, Method *method) {
             .length = name_info.as.utf8_info.length
           });
      
-      assert(sb_length(method->descriptor.parameter_types) == 0); // Assert no args for now
-
       // Put this_ptr in locals[0]
-      Frame new_frame = create_frame_from_code_attribute(*method->code_attr);
-      new_frame.locals[0] = (u64) this_ptr;
+      Frame new_frame = create_frame_from_method(method);
+
+      // Copy all args + this_ptr from the callers stack to the callees local vars
+      u64 num_args = sb_length(method->descriptor.parameter_types) + 1;
+      memcpy(
+          new_frame.locals,
+          f.sp - num_args,
+          num_args * sizeof(u64));
+
+      // Pop all args
+      f.sp = f.sp - num_args;
 
       sb_push(frames, f);
       f = new_frame;
@@ -569,7 +585,7 @@ void execute(ClassLoader class_loader, Method *method) {
     {
       u16 index = read_immediate_i16(&f);
 
-      Class *class = load_class_from_constant_pool(class_loader, method->constant_pool, index);
+      Class *class = load_class_from_constant_pool(class_loader, f.constant_pool, index);
       Object *obj = Object_create(class);
 
       f_push(&f, (u64) obj);
