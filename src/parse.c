@@ -62,19 +62,19 @@ attribute_info parse_attribute_info(ClassFile *class_file, u8 *data, int *out_by
   switch(info.type) {
   case Code_attribute:
   {
-    code_attribute *code_attr = malloc(sizeof(code_attribute));
+    code_attribute *code_attr = (code_attribute *)malloc(sizeof(code_attribute));
     code_attr->max_stack = __builtin_bswap16(*((u16 *)(data + offset))); offset += 2;
     code_attr->max_locals = __builtin_bswap16(*((u16 *)(data + offset))); offset += 2;
     code_attr->code_length = __builtin_bswap32(*((u32 *)(data + offset))); offset += 4;
 
-    code_attr->code = malloc(code_attr->code_length);
+    code_attr->code = (u8 *)malloc(code_attr->code_length);
     memcpy(code_attr->code, data+offset, code_attr->code_length);
     offset += code_attr->code_length;
 
     code_attr->exception_table_length = __builtin_bswap16(*((u16 *)(data + offset))); offset += 2;
     if (code_attr->exception_table_length > 0) {
       int exception_table_bytes = code_attr->exception_table_length * sizeof(exception_table_entry);
-      code_attr->exception_table = malloc(exception_table_bytes);
+      code_attr->exception_table = (exception_table_entry *)malloc(exception_table_bytes);
       // TODO(Noah): Endianness Problems
       memcpy(code_attr->exception_table, data+offset, exception_table_bytes);
       offset += exception_table_bytes;
@@ -84,7 +84,7 @@ attribute_info parse_attribute_info(ClassFile *class_file, u8 *data, int *out_by
 
     code_attr->attributes_count = __builtin_bswap16(*((u16 *)(data + offset))); offset += 2;
     if (code_attr->attributes_count > 0) {
-      code_attr->attributes = malloc(code_attr->attributes_count * sizeof(attribute_info));
+      code_attr->attributes = (attribute_info *)malloc(code_attr->attributes_count * sizeof(attribute_info));
       for (int i = 0; i < code_attr->attributes_count; i++) {
         int attribute_size = 0;
         code_attr->attributes[i] = parse_attribute_info(class_file, data+offset, &attribute_size);
@@ -111,7 +111,7 @@ attribute_info parse_attribute_info(ClassFile *class_file, u8 *data, int *out_by
   case Unknown_attribute:
   default:
     printf("Unhandled attribute with name_index %d\n", info.attribute_name_index);
-    info.as.bytes = malloc(info.attribute_length);
+    info.as.bytes = (u8 *)malloc(info.attribute_length);
     memcpy(info.as.bytes, data+offset, info.attribute_length);
     offset += info.attribute_length;
   }
@@ -141,7 +141,7 @@ method_info parse_method_info(ClassFile *class_file, u8 *data, int *out_byte_siz
     return info;
   }
 
-  info.attributes = malloc(sizeof(attribute_info) * info.attributes_count);
+  info.attributes = (attribute_info *)malloc(sizeof(attribute_info) * info.attributes_count);
   for (int i = 0; i < info.attributes_count; i++) {
     int attribute_size = 0;
     info.attributes[i] = parse_attribute_info(class_file, data+offset, &attribute_size);
@@ -169,7 +169,7 @@ field_info parse_field_info(ClassFile *class_file, u8 *data, int *out_byte_size 
     return info;
   }
 
-  info.attributes = malloc(sizeof(attribute_info) * info.attributes_count);
+  info.attributes = (attribute_info *)malloc(sizeof(attribute_info) * info.attributes_count);
 
   for (int i = 0; i < info.attributes_count; i++) {
     int attribute_size = 0;
@@ -209,7 +209,7 @@ cp_info parse_cp_info(u8 *data, int *out_byte_size /* How many bytes were parsed
   {
     // TODO: Length 0? Don't malloc in this case
     info.as.utf8_info.length = __builtin_bswap16(*((u16 *)(data+1)));
-    info.as.utf8_info.bytes = malloc(info.as.utf8_info.length);
+    info.as.utf8_info.bytes = (u8 *)malloc(info.as.utf8_info.length);
     memcpy(info.as.utf8_info.bytes, data+3, info.as.utf8_info.length);
     *out_byte_size = 3 + info.as.utf8_info.length;
   } break;
@@ -247,14 +247,14 @@ ClassFile *parse_class_file(char *filename) {
 
   u8* data = mmap(0, stat.st_size, PROT_READ, MAP_SHARED, fd, 0);
 
-  ClassFile *class_file = malloc(sizeof(ClassFile));
+  ClassFile *class_file = (ClassFile *)malloc(sizeof(ClassFile));
 
   class_file->magic               = __builtin_bswap32(((u32 *)data)[0]);
   class_file->minor_version       = __builtin_bswap16(((u16 *)data)[2]);
   class_file->major_version       = __builtin_bswap16(((u16 *)data)[3]);
   class_file->constant_pool_count = __builtin_bswap16(((u16 *)data)[4]);
 
-  class_file->constant_pool = malloc(sizeof(cp_info)*(class_file->constant_pool_count-1));
+  class_file->constant_pool = (cp_info *)malloc(sizeof(cp_info)*(class_file->constant_pool_count-1));
   int byte_size = 0;
   int data_index = 10; // Skip what we already parsed
   for (int i = 0; i < class_file->constant_pool_count-1; i++) {
@@ -273,7 +273,7 @@ ClassFile *parse_class_file(char *filename) {
   class_file->super_class = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
   class_file->interfaces_count = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
   if (class_file->interfaces_count > 0) {
-    class_file->interfaces = malloc(class_file->interfaces_count * sizeof(u16));
+    class_file->interfaces = (u16 *)malloc(class_file->interfaces_count * sizeof(u16));
     // TODO(Noah): This doesn't work because we have to convert the endianness
     memcpy(class_file->interfaces, data + data_index, class_file->interfaces_count * sizeof(u16));
     data_index += class_file->interfaces_count * sizeof(u16);
@@ -283,7 +283,7 @@ ClassFile *parse_class_file(char *filename) {
   class_file->fields_count = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
   // TODO: The field parsing is already wrong
   if (class_file->fields_count > 0) {
-    class_file->fields = malloc(class_file->fields_count * sizeof(field_info));
+    class_file->fields = (field_info *)malloc(class_file->fields_count * sizeof(field_info));
     for (int i = 0; i < class_file->fields_count; i++) {
       int field_info_size = 0;
       class_file->fields[i] = parse_field_info(class_file, data+data_index, &field_info_size);
@@ -297,7 +297,7 @@ ClassFile *parse_class_file(char *filename) {
   if (class_file->methods_count == 0) {
     class_file->methods = NULL;
   } else {
-    class_file->methods = malloc(sizeof(method_info) * class_file->methods_count);
+    class_file->methods = (method_info *)malloc(sizeof(method_info) * class_file->methods_count);
     printf("methods count %d\n", class_file->methods_count);
     for (int i = 0; i < class_file->methods_count; i++) {
       int method_info_size = 0;
@@ -310,7 +310,7 @@ ClassFile *parse_class_file(char *filename) {
   if (class_file->attributes_count == 0) {
     class_file->attributes = NULL;
   } else {
-    class_file->attributes = malloc(sizeof(attribute_info) * class_file->attributes_count);
+    class_file->attributes = (attribute_info *)malloc(sizeof(attribute_info) * class_file->attributes_count);
     for (int i = 0; i < class_file->attributes_count; i++) {
       int attribute_info_size = 0;
       class_file->attributes[i] = parse_attribute_info(class_file, data+data_index, &attribute_info_size);

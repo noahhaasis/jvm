@@ -43,7 +43,7 @@ struct Class {
   HashMap *field_index_map;
 };
 
-void set_static(Class *class, String fieldname, u32 value);
-u32 get_static(Class *class, String fieldname);
+void set_static(Class *cls, String fieldname, u32 value);
+u32 get_static(Class *cls, String fieldname);
 
 #endif

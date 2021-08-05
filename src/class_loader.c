@@ -125,11 +125,11 @@ code_attribute *find_code(cp_info *constant_pool, method_info method_info) {
 }
 
 Class *Class_from_class_file(ClassFile *class_file) {
-  Class *class = malloc(sizeof(Class)); // TODO
-  class->source_class_file = class_file;
-  class->method_map = HashMap_create();
-  class->field_map = HashMap_create();
-  class->field_index_map = HashMap_create();
+  Class *cls = malloc(sizeof(Class)); // TODO
+  cls->source_class_file = class_file;
+  cls->method_map = HashMap_create();
+  cls->field_map = HashMap_create();
+  cls->field_index_map = HashMap_create();
 
 
   // Insert all methods into a hashtable
@@ -143,17 +143,17 @@ Class *Class_from_class_file(ClassFile *class_file) {
     cp_info descriptor_string_constant = class_file->constant_pool[info.descriptor_index-1];
     method->descriptor = parse_method_descriptor(
         (String) {
+          .length = descriptor_string_constant.as.utf8_info.length,
           .bytes = (char *)descriptor_string_constant.as.utf8_info.bytes,
-          .length = descriptor_string_constant.as.utf8_info.length
         });
     method->code_attr = find_code(class_file->constant_pool, info);
 
     cp_info method_name_constant = class_file->constant_pool[method->name_index];
     HashMap_insert(
-        class->method_map,
+        cls->method_map,
         (String) {
+          .length = method_name_constant.as.utf8_info.length,
           .bytes = (char *)method_name_constant.as.utf8_info.bytes,
-          .length = method_name_constant.as.utf8_info.length
         },
         method);
   }
@@ -175,7 +175,7 @@ Class *Class_from_class_file(ClassFile *class_file) {
       cp_info field_name = class_file->constant_pool[info.name_index-1];
       u16 field_size = 8;
 
-      HashMap_insert(class->field_index_map, (String) {
+      HashMap_insert(cls->field_index_map, (String) {
             .length = field_name.as.utf8_info.length,
             .bytes = (char *)field_name.as.utf8_info.bytes
           }, (void *)field_byte_offset);
@@ -184,7 +184,7 @@ Class *Class_from_class_file(ClassFile *class_file) {
     }
   }
 
-  return class;
+  return cls;
 }
 
 char *filename_from_classname(String classname) {
@@ -239,24 +239,24 @@ Class *load_class(ClassLoader loader, String classname) {
 
   if (!class_file) return NULL;
 
-  Class *class = Class_from_class_file(class_file);
-  HashMap_insert(loader.loaded_classes, classname, class);
+  Class *cls = Class_from_class_file(class_file);
+  HashMap_insert(loader.loaded_classes, classname, cls);
 
-  return class;
+  return cls;
 }
 
 Class *get_class(ClassLoader loader, String classname) {
   return HashMap_get(loader.loaded_classes, classname);
 }
 
-void set_static(Class *class, String fieldname, u32 value) {
+void set_static(Class *cls, String fieldname, u32 value) {
   // Note: Since the only values we store at the moment are 32 bits
   // we can just store them instead of the pointer.
   //
   // FIXME: insert may try to free these values. Heap allocate for now and write a non owning map later
-  HashMap_insert(class->field_map, fieldname, (void *)value);
+  HashMap_insert(cls->field_map, fieldname, (void *)value);
 }
 
-u32 get_static(Class *class, String fieldname) {
-  return (u32) HashMap_get(class->field_map, fieldname);
+u32 get_static(Class *cls, String fieldname) {
+  return (u32) HashMap_get(cls->field_map, fieldname);
 }
