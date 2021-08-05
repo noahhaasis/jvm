@@ -38,6 +38,9 @@ struct Class {
 
   // Map<string, field>
   HashMap *field_map;
+
+  // Map<String, u64>
+  HashMap *field_index_map;
 };
 
 void set_static(Class *class, String fieldname, u32 value);

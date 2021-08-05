@@ -189,15 +189,15 @@ typedef struct {
 typedef enum {
   int_t = 1,
   double_t,
-} parameter_descriptor;
+} primitive_type;
 
 typedef enum {
   void_t = 0,
-  // ... parameter_descriptor
+  // ... primitive_type
 } return_descriptor;
 
 typedef struct {
-  parameter_descriptor *parameter_types; /* stretchy buffer */
+  primitive_type *parameter_types; /* stretchy buffer */
   return_descriptor return_type;
 } method_descriptor;
 
@@ -210,15 +210,7 @@ typedef struct {
     /* attribute_info attributes[attributes_count]; */
 } field_info;
 
-/* class access_flags */
-#define ACC_PUBLIC      0x0001u
-#define ACC_FINAL       0x0010u
-#define ACC_SUPER       0x0020u
-#define ACC_INTERFACE   0x0200u
-#define ACC_ABSTRACT    0x0400u
-#define ACC_SYNTHETIC   0x1000u
-#define ACC_ANNOTATION  0x2000u
-#define ACC_ENUM        0x4000u
+#define FIELD_ACC_STATIC 0x0008u
 
 typedef struct {
   u32             magic;

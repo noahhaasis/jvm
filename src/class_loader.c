@@ -20,6 +20,17 @@ void ClassLoader_destroy() {
   // TODO
 }
 
+primitive_type parse_primitive_type(String src) {
+  switch (*src.bytes) {
+    case 'I': return int_t;
+    case 'D': return double_t;
+    default:
+    {
+      assert(0);
+    }
+  }
+}
+
 method_descriptor parse_method_descriptor(String src) {
     /* Grammar:
     MethodDescriptor:
@@ -36,7 +47,7 @@ method_descriptor parse_method_descriptor(String src) {
         V
     */
   method_descriptor descriptor = (method_descriptor){ };
-  parameter_descriptor *params = NULL;
+  primitive_type *params = NULL;
 
   assert(src.length >= 3);
   assert(src.bytes[0] == '(');
@@ -118,8 +129,10 @@ Class *Class_from_class_file(ClassFile *class_file) {
   class->source_class_file = class_file;
   class->method_map = HashMap_create();
   class->field_map = HashMap_create();
+  class->field_index_map = HashMap_create();
 
 
+  // Insert all methods into a hashtable
   for (int i = 0; i < class_file->methods_count; i++) {
     Method *method = malloc(sizeof(Method));
     method->constant_pool = class_file->constant_pool;
@@ -143,6 +156,32 @@ Class *Class_from_class_file(ClassFile *class_file) {
           .length = method_name_constant.as.utf8_info.length
         },
         method);
+  }
+
+  u64 field_byte_offset = 0;
+  for (u32 i = 0; i < class_file->fields_count; i++) {
+    field_info info = class_file->fields[i];
+
+    if (info.access_flags & FIELD_ACC_STATIC) {
+      // TODO: Handle static field
+    } else {
+      cp_info field_descriptor = class_file->constant_pool[info.descriptor_index-1];
+      primitive_type field_type = parse_primitive_type(
+          (String) {
+            .length = field_descriptor.as.utf8_info.length,
+            .bytes = (char *)field_descriptor.as.utf8_info.bytes
+          });
+      // TODO: Support different sized types
+      cp_info field_name = class_file->constant_pool[info.name_index-1];
+      u16 field_size = 8;
+
+      HashMap_insert(class->field_index_map, (String) {
+            .length = field_name.as.utf8_info.length,
+            .bytes = (char *)field_name.as.utf8_info.bytes
+          }, (void *)field_byte_offset);
+
+      field_byte_offset += field_size;
+    }
   }
 
   return class;

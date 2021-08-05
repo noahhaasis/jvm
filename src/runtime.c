@@ -9,25 +9,6 @@
 #include <assert.h>
 #include <stdbool.h>
 
-method_info find_method(ClassFile *class_file, char *name, u32 name_length) {
-  for (int i = 0; i < class_file->methods_count; i++) {
-    method_info info = class_file->methods[i];
-    cp_info name_constant = class_file->constant_pool[info.name_index - 1];
-
-    u32 length = name_constant.as.utf8_info.length;
-    if (length == name_length &&
-        strncmp(
-          name,
-          (const char *)name_constant.as.utf8_info.bytes,
-          name_length) == 0) {
-      return info;
-    }
-  }
-  printf("Failed to find method \"%s\"", name);
-  assert(0);
-  return (method_info){};
-}
-
 /* TODO(noah):
  * Instead of having a seperate frame stack just push
  * the pointers on the stack and pop them.
@@ -414,8 +395,6 @@ void execute(ClassLoader class_loader, Method *method) {
             .bytes = (char *)method_name_constant.as.utf8_info.bytes,
             .length = method_name_constant.as.utf8_info.length
           });
-
-      code_attribute *method_code = method->code_attr;
 
       // Pop all args from the stack and store them in locals[] of the new frame
       method_descriptor method_descriptor = method->descriptor;
