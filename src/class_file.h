@@ -27,7 +27,7 @@
 
 void pretty_print_constant_tag(u8 tag);
 
-typedef struct {
+struct cp_info {
     u8 tag;
     union {
       struct {
@@ -87,16 +87,16 @@ typedef struct {
     } as;
     // TODO(noah): rename "info" to "as"
     /*u8 info[]*/;
-} cp_info;
+};
 
-typedef struct {
+struct exception_table_entry {
   u16 start_pc;
   u16 end_pc;
   u16 handler_pc;
   u16 catch_type;
-} exception_table_entry;
+};
 
-typedef enum {
+enum instruction_type {
   iconst        = 2,  /* 2 - 8 ; Push iconst_<n>*/
   bipush        = 16,
   ldc           = 18,
@@ -127,13 +127,13 @@ typedef enum {
   invokevirtual = 182,
   invokespecial = 183,
   invokestatic  = 184,
-  new           = 187,
+  new_instr     = 187,
   undefined,
-} instruction_type;
+};
 
-typedef struct attribute_info attribute_info;
+struct attribute_info;
 
-typedef struct {
+struct code_attribute {
   u16 max_stack;
   u16 max_locals;
   u32 code_length;
@@ -145,16 +145,16 @@ typedef struct {
   u16 attributes_count;
   attribute_info *attributes;
   /* attribute_info attributes[attributes_count]; */
-} code_attribute;
+};
 
-typedef enum {
+enum attribute_type {
   SourceFile_attribute,
   ConstantValue_attribute,
   Code_attribute,
   LineNumberTable_attribute,
   StackMapTable_attribute,
   Unknown_attribute
-} attribute_type;
+};
 
 struct attribute_info {
     u16 attribute_name_index;
@@ -177,42 +177,42 @@ struct attribute_info {
     /* u8 info[attribute_length]; */
 };
 
-typedef struct {
+struct method_info {
     u16             access_flags;
     u16             name_index;
     u16             descriptor_index;
     u16             attributes_count;
     attribute_info *attributes;
     /* attribute_info attributes[attributes_count]; */
-} method_info;
+};
 
-typedef enum {
+enum primitive_type {
   int_t = 1,
   double_t,
-} primitive_type;
+};
 
-typedef enum {
+enum return_descriptor {
   void_t = 0,
   // ... primitive_type
-} return_descriptor;
+};
 
-typedef struct {
+struct method_descriptor {
   primitive_type *parameter_types; /* stretchy buffer */
   return_descriptor return_type;
-} method_descriptor;
+};
 
-typedef struct {
+struct field_info {
     u16             access_flags;
     u16             name_index;
     u16             descriptor_index;
     u16             attributes_count;
     attribute_info *attributes;
     /* attribute_info attributes[attributes_count]; */
-} field_info;
+};
 
 #define FIELD_ACC_STATIC 0x0008u
 
-typedef struct {
+struct ClassFile {
   u32             magic;
   u16             minor_version;
   u16             major_version;
@@ -234,7 +234,7 @@ typedef struct {
   u16             attributes_count;
   attribute_info *attributes;
   /* attribute_info attributes[attributes_count]; */
-} ClassFile;
+};
 
 attribute_type parse_attribute_type(char *unicode_name, int length);
 

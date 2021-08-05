@@ -14,13 +14,13 @@
  * the pointers on the stack and pop them.
  */
 
-typedef struct {
+struct Frame {
   u8 *pc;
   u64 *stack;
   u64 *sp;
   u64 *locals;
   cp_info *constant_pool;
-} Frame;
+};
 
 Frame create_frame_from_method(Method *method) {
   code_attribute code_attr = *method->code_attr;
@@ -48,8 +48,10 @@ void free_frame(Frame frame) {
 void execute_main(char *class_name) {
   char cwd[256];
   getcwd(cwd, 256);
-  ClassLoader class_loader = ClassLoader_create(
-      (char *[]){ "/home/haschisch/Projects/cl/test", cwd }, 2);
+  char *paths[2];
+  paths[0] = (char *) "/home/haschisch/Projects/cl/test";
+  paths[1] = cwd;
+  ClassLoader class_loader = ClassLoader_create(paths, 2);
 
   Class *main_class = load_class(
       class_loader,
@@ -155,11 +157,11 @@ Class *load_class_from_constant_pool(ClassLoader class_loader, cp_info *constant
 }
 
 // Well this is just obviously bad :^)
-typedef struct {
+struct Object {
   Class *cls;
   // HashMap<string field, u32 value>
   HashMap *fields;
-} Object;
+};
 
 Object *Object_create(Class *cls) {
   Object *obj = (Object *)malloc(sizeof(Object));
@@ -560,7 +562,7 @@ void execute(ClassLoader class_loader, Method *method) {
       sb_push(frames, f);
       f = new_frame;
     } break;
-    case new:
+    case new_instr:
     {
       u16 index = read_immediate_i16(&f);
 

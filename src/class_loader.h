@@ -4,16 +4,16 @@
 #include "hashmap.h"
 #include "class_file.h"
 
-typedef struct Class Class;
+struct Class;
 
-typedef struct {
+struct ClassLoader {
   // List of directories. Not owned
   char **classpath;
   u64 num_paths;
 
   // Map<String, class>
   HashMap *loaded_classes;
-} ClassLoader;
+};
 
 ClassLoader ClassLoader_create(char **classpath, u64 num_paths);
 
@@ -21,13 +21,13 @@ Class *load_class(ClassLoader loader, String classname);
 
 Class *get_class(ClassLoader loader, String classname);
 
-typedef struct {
+struct Method {
   cp_info *constant_pool;
   code_attribute *code_attr;
   method_descriptor descriptor;
   // TODO(noah): Make this a pointer?
   u16 name_index; // 0 based
-} Method;
+};
 
 struct Class {
   // Let's keep the original ClassFile around

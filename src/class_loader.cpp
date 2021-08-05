@@ -11,8 +11,8 @@
 ClassLoader ClassLoader_create(char **classpath, u64 num_paths) {
   return (ClassLoader) {
     .classpath = classpath,
+    .num_paths = num_paths,
     .loaded_classes = HashMap_create(),
-    .num_paths = num_paths
   };
 }
 
@@ -89,11 +89,11 @@ method_descriptor parse_method_descriptor(String src) {
   } break;
   case 'I':
   {
-    descriptor.return_type = int_t;
+    descriptor.return_type = (return_descriptor) int_t;
   } break;
   case 'D':
   {
-    descriptor.return_type = double_t;
+    descriptor.return_type = (return_descriptor) double_t;
   } break;
   default:
   {
@@ -125,7 +125,7 @@ code_attribute *find_code(cp_info *constant_pool, method_info method_info) {
 }
 
 Class *Class_from_class_file(ClassFile *class_file) {
-  Class *cls = malloc(sizeof(Class)); // TODO
+  Class *cls = (Class *)malloc(sizeof(Class)); // TODO
   cls->source_class_file = class_file;
   cls->method_map = HashMap_create();
   cls->field_map = HashMap_create();
@@ -134,7 +134,7 @@ Class *Class_from_class_file(ClassFile *class_file) {
 
   // Insert all methods into a hashtable
   for (int i = 0; i < class_file->methods_count; i++) {
-    Method *method = malloc(sizeof(Method));
+    Method *method = (Method *)malloc(sizeof(Method));
     method->constant_pool = class_file->constant_pool;
 
     method_info info = class_file->methods[i];
@@ -190,7 +190,7 @@ Class *Class_from_class_file(ClassFile *class_file) {
 char *filename_from_classname(String classname) {
   char *file_extension = ".class";
   int filename_length = classname.length + strlen(file_extension) + 1;
-  char *filename = malloc(filename_length);
+  char *filename = (char *)malloc(filename_length);
 
   memcpy(filename, classname.bytes, classname.length);
   memcpy(filename + classname.length, file_extension, strlen(file_extension));
@@ -212,7 +212,7 @@ char *find_classfile_in_classpath(ClassLoader loader, String classname) {
         u32 dir_len = strlen(dir_path);
         u32 classfile_name_len = strlen(classfile_name);
         
-        char *full_path = malloc(dir_len + classfile_name_len + 2);
+        char *full_path = (char *)malloc(dir_len + classfile_name_len + 2);
         memcpy(full_path, dir_path, dir_len);
         full_path[dir_len] = '/';
         memcpy(full_path + dir_len + 1, classfile_name, classfile_name_len);

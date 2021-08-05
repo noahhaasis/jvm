@@ -6,10 +6,10 @@
 
 #define null 0
 
-typedef struct {
+struct sb_header {
   int length;
   int capacity;
-} sb_header;
+};
 
 #define INITIAL_CAPACITY 8
 

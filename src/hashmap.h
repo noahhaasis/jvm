@@ -4,7 +4,7 @@
 #include "common.h"
 #include "string.h"
 
-typedef struct HashMap HashMap;
+struct HashMap;
 
 HashMap *HashMap_create();
 

@@ -6,7 +6,6 @@
 
 #define NUM_BUCKETS 64
 
-typedef struct BucketItem BucketItem;
 struct BucketItem {
   u64 hash;
   String key;
@@ -33,7 +32,7 @@ u64 HashMap_hash(String key) { // TODO
 }
 
 HashMap *HashMap_create() {
-  return calloc(sizeof(HashMap), 1);
+  return (HashMap *)calloc(sizeof(HashMap), 1);
 }
 
 void HashMap_destroy(HashMap *hm) {
@@ -44,7 +43,7 @@ void HashMap_destroy(HashMap *hm) {
 }
 
 BucketItem *BucketItem_create(u64 hash, String key, void *value) {
-    BucketItem *item = malloc(sizeof(BucketItem));
+    BucketItem *item = (BucketItem *)malloc(sizeof(BucketItem));
     item->hash = hash;
     item->key = key;
     item->value = value;
