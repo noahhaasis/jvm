@@ -156,7 +156,6 @@ Class *load_class_from_constant_pool(ClassLoader class_loader, cp_info *constant
 // Well this is just obviously bad :^)
 struct Object {
   Class *cls;
-  // HashMap<string field, u32 value>
   HashMap<u64> *fields;
 };
 
@@ -173,10 +172,23 @@ internal inline i16 read_immediate_i16(Frame *f) {
   return (i16)((branchbyte1 << 8) | branchbyte2);
 }
 
+#define ifCOND(operator)                              \
+      do {                                            \
+        int offset = read_immediate_i16(&f);          \
+        u32 value = f_pop(&f);                        \
+        if (value operator 0) { /* Branch succeeds */ \
+          f.pc += offset - 3;                         \
+        }                                             \
+      } while(0);                                     \
+
+
+#define iBINOP(operator)                            \
+      f.sp -= 1; u32 value2 = *f.sp;                \
+      u32 value1 = *(f.sp-1);                       \
+      *(f.sp-1) = (int)value1 operator (int)value2; \
+
 void execute(ClassLoader class_loader, Method *method) {
   assert(method);
-
-  // TODO(noah): Store the current class?
   Frame *frames = NULL;
   /* Current frame */
   Frame f = create_frame_from_method(method);
@@ -228,27 +240,8 @@ void execute(ClassLoader class_loader, Method *method) {
     } break;
     case pop: { f.sp -= 1; } break;
     case dup_instr: { f_push(&f, *(f.sp-1)); } break;
-    // TODO: Macro ifCOND(op) ...
-    case ifeq:
-    {
-      int offset = read_immediate_i16(&f);
-
-      f.sp -= 1;
-      u32 value = *f.sp;
-
-      if (value == 0) { // Branch succeeds
-        f.pc += offset - 3;
-      }
-    } break;
-    case ifne:
-    {
-      int offset = read_immediate_i16(&f);
-      u32 value = f_pop(&f);
-
-      if (value != 0) { // Branch succeeds
-        f.pc += offset - 3;
-      }
-    } break;
+    case ifeq: { ifCOND(==) } break;
+    case ifne: { ifCOND(!=) } break;
     case if_icmpgt:
     {
       int offset = read_immediate_i16(&f);
@@ -339,25 +332,9 @@ void execute(ClassLoader class_loader, Method *method) {
           },
           value);
     } break;
-    // TODO: Refactor into macro BINOP
-    case imul:
-    {
-      f.sp -= 1; u32 value2 = *f.sp;
-      u32 value1 = *(f.sp-1);
-      *(f.sp-1) = (int)value1 * (int)value2;
-    } break;
-    case iadd:
-    {
-      f.sp -= 1; u32 value2 = *f.sp;
-      u32 value1 = *(f.sp-1);
-      *(f.sp-1) = (int)value1 + (int)value2;
-    } break;
-    case isub:
-    {
-      f.sp -= 1; u32 value2 = *f.sp;
-      u32 value1 = *(f.sp-1);
-      *(f.sp-1) = (int)value1 - (int)value2;
-    } break;
+    case imul: { iBINOP(*) } break;
+    case iadd: { iBINOP(+) } break;
+    case isub: { iBINOP(-) } break;
     case iinc:
     {
       u8 index = *(f.pc++);

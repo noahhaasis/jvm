@@ -26,6 +26,8 @@ internal BucketItem<T> *BucketItem_create(u64 hash, String key, T *value) {
     return item;
 }
 
+// TODO: Create specialization: HashMap<u64>
+
 template<typename T>
 class HashMap {
 public:
