@@ -1,8 +1,8 @@
 #ifndef CLASSLOADER_H
 #define CLASSLOADER_H
 
-#include "hashmap.h"
 #include "class_file.h"
+#include "HashMap.h"
 
 struct Class;
 
@@ -12,7 +12,7 @@ struct ClassLoader {
   u64 num_paths;
 
   // Map<String, class>
-  HashMap *loaded_classes;
+  HashMap<Class> *loaded_classes;
 };
 
 ClassLoader ClassLoader_create(char **classpath, u64 num_paths);
@@ -29,21 +29,26 @@ struct Method {
   u16 name_index; // 0 based
 };
 
+struct FieldInfo {
+  u64 index;
+  // TODO: Field type
+};
+
 struct Class {
   // Let's keep the original ClassFile around
   ClassFile *source_class_file; // TODO: Actually see what we need
 
   // Map<string, Method>
-  HashMap *method_map;
+  HashMap<Method> *method_map;
 
   // Map<string, field>
-  HashMap *field_map;
+  HashMap<u64> *static_field_map;
 
   // Map<String, u64>
-  HashMap *field_index_map;
+  HashMap<FieldInfo> *instance_field_map;
 };
 
-void set_static(Class *cls, String fieldname, u32 value);
-u32 get_static(Class *cls, String fieldname);
+void set_static(Class *cls, String fieldname, u64 value);
+u64 get_static(Class *cls, String fieldname);
 
 #endif

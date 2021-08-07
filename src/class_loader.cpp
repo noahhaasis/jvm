@@ -12,7 +12,7 @@ ClassLoader ClassLoader_create(char **classpath, u64 num_paths) {
   return (ClassLoader) {
     .classpath = classpath,
     .num_paths = num_paths,
-    .loaded_classes = HashMap_create(),
+    .loaded_classes = new HashMap<Class>(),
   };
 }
 
@@ -127,9 +127,9 @@ code_attribute *find_code(cp_info *constant_pool, method_info method_info) {
 Class *Class_from_class_file(ClassFile *class_file) {
   Class *cls = (Class *)malloc(sizeof(Class)); // TODO
   cls->source_class_file = class_file;
-  cls->method_map = HashMap_create();
-  cls->field_map = HashMap_create();
-  cls->field_index_map = HashMap_create();
+  cls->method_map = new HashMap<Method>();
+  cls->static_field_map = new HashMap<u64>();
+  cls->instance_field_map = new HashMap<FieldInfo>();
 
 
   // Insert all methods into a hashtable
@@ -149,8 +149,7 @@ Class *Class_from_class_file(ClassFile *class_file) {
     method->code_attr = find_code(class_file->constant_pool, info);
 
     cp_info method_name_constant = class_file->constant_pool[method->name_index];
-    HashMap_insert(
-        cls->method_map,
+    cls->method_map->insert(
         (String) {
           .length = method_name_constant.as.utf8_info.length,
           .bytes = (char *)method_name_constant.as.utf8_info.bytes,
@@ -175,10 +174,13 @@ Class *Class_from_class_file(ClassFile *class_file) {
       cp_info field_name = class_file->constant_pool[info.name_index-1];
       u16 field_size = 8;
 
-      HashMap_insert(cls->field_index_map, (String) {
+      FieldInfo *fieldInfo = malloc(sizeof(FieldInfo));
+      *fieldInfo = {field_byte_offset};
+
+      cls->instance_field_map->insert((String) {
             .length = field_name.as.utf8_info.length,
             .bytes = (char *)field_name.as.utf8_info.bytes
-          }, (void *)field_byte_offset);
+          }, fieldInfo);
 
       field_byte_offset += field_size;
     }
@@ -240,23 +242,25 @@ Class *load_class(ClassLoader loader, String classname) {
   if (!class_file) return NULL;
 
   Class *cls = Class_from_class_file(class_file);
-  HashMap_insert(loader.loaded_classes, classname, cls);
+  loader.loaded_classes->insert(classname, cls);
 
   return cls;
 }
 
 Class *get_class(ClassLoader loader, String classname) {
-  return HashMap_get(loader.loaded_classes, classname);
+  return loader.loaded_classes->get(classname);
 }
 
-void set_static(Class *cls, String fieldname, u32 value) {
+void set_static(Class *cls, String fieldname, u64 value) {
   // Note: Since the only values we store at the moment are 32 bits
   // we can just store them instead of the pointer.
   //
   // FIXME: insert may try to free these values. Heap allocate for now and write a non owning map later
-  HashMap_insert(cls->field_map, fieldname, (void *)value);
+  u64 *heap_value = malloc(sizeof(u64));
+  *heap_value = value;
+  cls->static_field_map->insert(fieldname, heap_value);
 }
 
-u32 get_static(Class *cls, String fieldname) {
-  return (u32) HashMap_get(cls->field_map, fieldname);
+u64 get_static(Class *cls, String fieldname) {
+  return *cls->static_field_map->get(fieldname);
 }

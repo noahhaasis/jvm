@@ -64,8 +64,7 @@ void execute_main(char *class_name) {
   }
 
   // call <clinit>
-  Method *clinit = HashMap_get(
-      main_class->method_map,
+  Method *clinit = main_class->method_map->get(
       (String) {
         .length = strlen("<clinit>"),
         .bytes = "<clinit>",
@@ -73,8 +72,7 @@ void execute_main(char *class_name) {
   execute(class_loader, clinit);
 
 
-  Method *main_method = HashMap_get(
-      main_class->method_map, 
+  Method *main_method = main_class->method_map->get(
       (String) {
         .length = strlen("main"),
         .bytes = "main",
@@ -83,17 +81,17 @@ void execute_main(char *class_name) {
   // ClassLoader_destroy(&);
 }
 
-intern inline u64 f_pop(Frame *f) {
+internal inline u64 f_pop(Frame *f) {
   f->sp -= 1;
   return *f->sp;
 }
 
-intern inline void f_push(Frame *f, u64 value) {
+internal inline void f_push(Frame *f, u64 value) {
   *f->sp = value;
   f->sp += 1;
 }
 
-intern Class *get_or_load_class(ClassLoader class_loader, String classname) {
+internal Class *get_or_load_class(ClassLoader class_loader, String classname) {
   Class * cls = get_class(class_loader, classname);
   if (cls) {
     return cls;
@@ -105,8 +103,7 @@ intern Class *get_or_load_class(ClassLoader class_loader, String classname) {
     return NULL;
   }
 
-  Method *clinit = HashMap_get(
-    cls->method_map,
+  Method *clinit = cls->method_map->get(
     (String) {
       .length = strlen("<clinit>"),
       .bytes = "<clinit>",
@@ -118,7 +115,7 @@ intern Class *get_or_load_class(ClassLoader class_loader, String classname) {
   return cls;
 }
 
-intern Class *load_class_and_field_name_from_field_ref(
+internal Class *load_class_and_field_name_from_field_ref(
     ClassLoader class_loader, cp_info *constant_pool, u16 index,
     cp_info *out_field_name) {
       // Field resolution
@@ -160,17 +157,17 @@ Class *load_class_from_constant_pool(ClassLoader class_loader, cp_info *constant
 struct Object {
   Class *cls;
   // HashMap<string field, u32 value>
-  HashMap *fields;
+  HashMap<u64> *fields;
 };
 
 Object *Object_create(Class *cls) {
   Object *obj = (Object *)malloc(sizeof(Object));
   obj->cls = cls;
-  obj->fields = HashMap_create();
+  obj->fields = new HashMap<u64>();
   return obj;
 }
 
-intern inline i16 read_immediate_i16(Frame *f) {
+internal inline i16 read_immediate_i16(Frame *f) {
   u8 branchbyte1 = *(f->pc++);
   u8 branchbyte2 = *(f->pc++);
   return (i16)((branchbyte1 << 8) | branchbyte2);
@@ -391,8 +388,7 @@ void execute(ClassLoader class_loader, Method *method) {
             .bytes = (char *)class_name_constant.as.utf8_info.bytes,
           });
 
-      Method *method = HashMap_get(
-          cls->method_map,
+      Method *method = cls->method_map->get(
           (String) {
             .length = method_name_constant.as.utf8_info.length,
             .bytes = (char *)method_name_constant.as.utf8_info.bytes,
@@ -433,12 +429,11 @@ void execute(ClassLoader class_loader, Method *method) {
       cp_info fieldname = f.constant_pool[
         name_and_type.as.name_and_type_info.name_index-1];
 
-      u64 value = *((u64 *)HashMap_get(
-          this_ptr->fields,
+      u64 value = *this_ptr->fields->get(
           (String) {
             .length = fieldname.as.utf8_info.length,
             .bytes = (char *)fieldname.as.utf8_info.bytes,
-          }));
+          });
 
       f_push(&f, value);
     } break;
@@ -458,13 +453,11 @@ void execute(ClassLoader class_loader, Method *method) {
       u64 *heap_value = (u64 *)malloc(sizeof(u64));
       *heap_value = value;
 
-      HashMap_insert(
-          this_ptr->fields,
+      this_ptr->fields->insert(
           (String) {
             .length = fieldname.as.utf8_info.length,
             .bytes = (char *)fieldname.as.utf8_info.bytes,
-          },
-          heap_value);
+          }, heap_value);
     } break;
     case invokevirtual:
     {
@@ -493,8 +486,7 @@ void execute(ClassLoader class_loader, Method *method) {
         methodref.as.methodref_info.name_and_type_index-1];
       cp_info name_info = f.constant_pool[
         name_and_type.as.name_and_type_info.name_index-1];
-      Method *method = HashMap_get(
-          cls->method_map, 
+      Method *method = cls->method_map->get(
           (String) {
             .length = name_info.as.utf8_info.length,
             .bytes = (char *)name_info.as.utf8_info.bytes,
@@ -539,8 +531,7 @@ void execute(ClassLoader class_loader, Method *method) {
         methodref.as.methodref_info.name_and_type_index-1];
       cp_info name_info = f.constant_pool[
         name_and_type.as.name_and_type_info.name_index-1];
-      Method *method = HashMap_get(
-          cls->method_map, 
+      Method *method = cls->method_map->get( 
           (String) {
             .length = name_info.as.utf8_info.length,
             .bytes = (char *)name_info.as.utf8_info.bytes,
