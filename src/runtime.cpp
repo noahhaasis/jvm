@@ -156,13 +156,12 @@ Class *load_class_from_constant_pool(ClassLoader class_loader, cp_info *constant
 // Well this is just obviously bad :^)
 struct Object {
   Class *cls;
-  HashMap<u64> *fields;
+  u8 data[];
 };
 
 Object *Object_create(Class *cls) {
-  Object *obj = (Object *)malloc(sizeof(Object));
+  Object *obj = (Object *)calloc(sizeof(Object) + cls->object_body_size, 1);
   obj->cls = cls;
-  obj->fields = new HashMap<u64>();
   return obj;
 }
 
@@ -403,11 +402,13 @@ void execute(ClassLoader class_loader, Method *method) {
       cp_info fieldname = f.constant_pool[
         name_and_type.as.name_and_type_info.name_index-1];
 
-      u64 value = *this_ptr->fields->get(
+      FieldInfo *field_info = this_ptr->cls->instance_field_map->get(
           (String) {
             .length = fieldname.as.utf8_info.length,
             .bytes = (char *)fieldname.as.utf8_info.bytes,
           });
+
+      u64 value = ((u64 *)this_ptr->data)[field_info->index];
 
       f_push(&f, value);
     } break;
@@ -424,14 +425,12 @@ void execute(ClassLoader class_loader, Method *method) {
       cp_info fieldname = f.constant_pool[
         name_and_type.as.name_and_type_info.name_index-1];
 
-      u64 *heap_value = (u64 *)malloc(sizeof(u64));
-      *heap_value = value;
-
-      this_ptr->fields->insert(
+      FieldInfo *field_info = this_ptr->cls->instance_field_map->get(
           (String) {
             .length = fieldname.as.utf8_info.length,
             .bytes = (char *)fieldname.as.utf8_info.bytes,
-          }, heap_value);
+          });
+      ((u64 *)this_ptr->data)[field_info->index] = value;
     } break;
     case invokevirtual:
     {

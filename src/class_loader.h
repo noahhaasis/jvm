@@ -46,6 +46,8 @@ struct Class {
 
   // Map<String, u64>
   HashMap<FieldInfo> *instance_field_map;
+
+  u32 object_body_size;
 };
 
 void set_static(Class *cls, String fieldname, u64 value);

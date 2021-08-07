@@ -182,6 +182,8 @@ Class *Class_from_class_file(ClassFile *class_file) {
     }
   }
 
+  cls->object_body_size = field_byte_offset;
+
   return cls;
 }
 
