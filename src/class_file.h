@@ -2,6 +2,7 @@
 #define CLASSFILE_H
 
 #include "common.h"
+#include "Vector.h"
 
 /* NOTE(Noah):
  * Multiple byte values in java class files are always stored in _big-endian order_
@@ -197,7 +198,7 @@ enum return_descriptor {
 };
 
 struct method_descriptor {
-  primitive_type *parameter_types; /* stretchy buffer */
+  Vector<primitive_type> parameter_types;
   return_descriptor return_type;
 };
 

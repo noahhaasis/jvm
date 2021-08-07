@@ -1,6 +1,6 @@
 #include "runtime.h"
 
-#include "buffer.h"
+#include "Vector.h"
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -189,7 +189,7 @@ internal inline i16 read_immediate_i16(Frame *f) {
 
 void execute(ClassLoader class_loader, Method *method) {
   assert(method);
-  Frame *frames = NULL;
+  Vector<Frame> frames;
   /* Current frame */
   Frame f = create_frame_from_method(method);
 
@@ -268,15 +268,14 @@ void execute(ClassLoader class_loader, Method *method) {
     {
       u32 value = f_pop(&f);
       printf("Returning int %d\n", value);
-      if (sb_is_empty(frames)) {
+      if (frames.empty()) {
         goto exit;
       }
 #ifdef DEBUG
       assert(f.sp == f.stack);
 #endif
       free_frame(f);
-      f = frames[sb_length(frames)-1];
-      sb_pop(frames);
+      f = frames.pop();
 
       // push the return value
       f_push(&f, value);
@@ -284,16 +283,14 @@ void execute(ClassLoader class_loader, Method *method) {
     case return_void:
     {
       printf("Returning void\n");
-      if (sb_is_empty(frames)) {
+      if (frames.empty()) {
         goto exit;
       }
 #ifdef DEBUG
       assert(f.sp == f.stack);
 #endif
-      // TODO: Use sb_pop and make it actually return the poped value
       free_frame(f);
-      f = frames[sb_length(frames) - 1];
-      sb_pop(frames);
+      f = frames.pop();
     } break;
     case getstatic:
     {
@@ -377,7 +374,7 @@ void execute(ClassLoader class_loader, Method *method) {
       Frame new_frame = create_frame_from_method(method);
 
       // Copy all args from the callers stack to the callees local vars
-      u64 num_args = sb_length(method_descriptor.parameter_types);
+      u64 num_args = method_descriptor.parameter_types.length();
       memcpy(
           new_frame.locals,
           f.sp - num_args,
@@ -385,7 +382,7 @@ void execute(ClassLoader class_loader, Method *method) {
       // Pop all args
       f.sp = f.sp - num_args;
 
-      sb_push(frames, f);
+      frames.push(f);
       f = new_frame;
     } break;
     case goto_instr:
@@ -472,7 +469,7 @@ void execute(ClassLoader class_loader, Method *method) {
       Frame new_frame = create_frame_from_method(method);
 
       // Copy all args + this_ptr from the callers stack to the callees local vars
-      u64 num_args = sb_length(method->descriptor.parameter_types) + 1;
+      u64 num_args = method->descriptor.parameter_types.length() + 1;
       memcpy(
           new_frame.locals,
           f.sp - num_args,
@@ -481,7 +478,7 @@ void execute(ClassLoader class_loader, Method *method) {
       // Pop all args
       f.sp = f.sp - num_args;
 
-      sb_push(frames, f);
+      frames.push(f);
       f = new_frame;
     } break;
     case invokespecial:
@@ -518,7 +515,7 @@ void execute(ClassLoader class_loader, Method *method) {
       Frame new_frame = create_frame_from_method(method);
 
       // Copy all args + this_ptr from the callers stack to the callees local vars
-      u64 num_args = sb_length(method->descriptor.parameter_types) + 1;
+      u64 num_args = method->descriptor.parameter_types.length() + 1;
       memcpy(
           new_frame.locals,
           f.sp - num_args,
@@ -527,7 +524,7 @@ void execute(ClassLoader class_loader, Method *method) {
       // Pop all args
       f.sp = f.sp - num_args;
 
-      sb_push(frames, f);
+      frames.push(f);
       f = new_frame;
     } break;
     case new_instr:

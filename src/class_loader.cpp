@@ -1,7 +1,5 @@
 #include "class_loader.h"
 
-#include "buffer.h"
-
 #include <dirent.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -47,7 +45,7 @@ method_descriptor parse_method_descriptor(String src) {
         V
     */
   method_descriptor descriptor = (method_descriptor){ };
-  primitive_type *params = NULL;
+  descriptor.parameter_types = Vector<primitive_type>();
 
   assert(src.length >= 3);
   assert(src.bytes[0] == '(');
@@ -57,11 +55,11 @@ method_descriptor parse_method_descriptor(String src) {
     switch(src.bytes[offset]) {
     case 'I':
     {
-      sb_push(params, int_t);
+      descriptor.parameter_types.push(int_t);
     } break;
     case 'D':
     {
-      sb_push(params, double_t);
+      descriptor.parameter_types.push(double_t);
     } break;
     case '[':
     {
@@ -75,8 +73,6 @@ method_descriptor parse_method_descriptor(String src) {
     }
     }
   }
-
-  descriptor.parameter_types = params;
 
   assert(src.bytes[offset] == ')');
 
