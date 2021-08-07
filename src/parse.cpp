@@ -94,7 +94,7 @@ attribute_info parse_attribute_info(ClassFile *class_file, u8 *data, int *out_by
       code_attr->attributes = NULL;
     }
 
-    info.as.code_attribute = code_attr;
+    info.as.code_attr = code_attr;
   } break;
   case ConstantValue_attribute:
   {
@@ -245,7 +245,7 @@ ClassFile *parse_class_file(char *filename) {
   struct stat stat;
   fstat(fd, &stat);
 
-  u8* data = mmap(0, stat.st_size, PROT_READ, MAP_SHARED, fd, 0);
+  u8* data = (u8 *)mmap(0, stat.st_size, PROT_READ, MAP_SHARED, fd, 0);
 
   ClassFile *class_file = (ClassFile *)malloc(sizeof(ClassFile));
 

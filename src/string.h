@@ -4,7 +4,7 @@
 #include "common.h"
 
 struct String {
-  u32 length;
+  u64 length;
   char *bytes;
 };
 

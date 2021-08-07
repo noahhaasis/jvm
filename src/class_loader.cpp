@@ -112,7 +112,7 @@ code_attribute *find_code(cp_info *constant_pool, method_info method_info) {
           "Code",
           (const char *)name_constant.as.utf8_info.bytes,
           name_constant.as.utf8_info.length) == 0) {
-      return info.as.code_attribute;
+      return info.as.code_attr;
     }
   }
 
@@ -127,6 +127,7 @@ Class *Class_from_class_file(ClassFile *class_file) {
   cls->static_field_map = new HashMap<u64>();
   cls->instance_field_map = new HashMap<FieldInfo>();
 
+  cls->super_class = NULL; // TODO
 
   // Insert all methods into a hashtable
   for (int i = 0; i < class_file->methods_count; i++) {
@@ -170,7 +171,7 @@ Class *Class_from_class_file(ClassFile *class_file) {
       cp_info field_name = class_file->constant_pool[info.name_index-1];
       u16 field_size = 8;
 
-      FieldInfo *fieldInfo = malloc(sizeof(FieldInfo));
+      FieldInfo *fieldInfo = (FieldInfo *)malloc(sizeof(FieldInfo));
       *fieldInfo = {field_byte_offset};
 
       cls->instance_field_map->insert((String) {
@@ -188,7 +189,7 @@ Class *Class_from_class_file(ClassFile *class_file) {
 }
 
 char *filename_from_classname(String classname) {
-  char *file_extension = ".class";
+  char *file_extension = (char *)".class";
   int filename_length = classname.length + strlen(file_extension) + 1;
   char *filename = (char *)malloc(filename_length);
 
@@ -254,7 +255,7 @@ void set_static(Class *cls, String fieldname, u64 value) {
   // we can just store them instead of the pointer.
   //
   // FIXME: insert may try to free these values. Heap allocate for now and write a non owning map later
-  u64 *heap_value = malloc(sizeof(u64));
+  u64 *heap_value = (u64 *)malloc(sizeof(u64));
   *heap_value = value;
   cls->static_field_map->insert(fieldname, heap_value);
 }

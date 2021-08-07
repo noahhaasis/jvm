@@ -38,6 +38,8 @@ struct Class {
   // Let's keep the original ClassFile around
   ClassFile *source_class_file; // TODO: Actually see what we need
 
+  Class *super_class;
+
   // Map<string, Method>
   HashMap<Method> *method_map;
 

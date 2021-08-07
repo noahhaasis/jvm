@@ -67,7 +67,7 @@ void execute_main(char *class_name) {
   Method *clinit = main_class->method_map->get(
       (String) {
         .length = strlen("<clinit>"),
-        .bytes = "<clinit>",
+        .bytes = (char *)"<clinit>",
       });
   execute(class_loader, clinit);
 
@@ -75,7 +75,7 @@ void execute_main(char *class_name) {
   Method *main_method = main_class->method_map->get(
       (String) {
         .length = strlen("main"),
-        .bytes = "main",
+        .bytes = (char *)"main",
       }); // TODO
   execute(class_loader, main_method);
   // ClassLoader_destroy(&);
@@ -106,7 +106,7 @@ internal Class *get_or_load_class(ClassLoader class_loader, String classname) {
   Method *clinit = cls->method_map->get(
     (String) {
       .length = strlen("<clinit>"),
-      .bytes = "<clinit>",
+      .bytes = (char *)"<clinit>",
     });
   if (clinit) {
     execute(class_loader, clinit);

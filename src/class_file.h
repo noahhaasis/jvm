@@ -169,7 +169,7 @@ struct attribute_info {
       u16 constantvalue_index;
 
       /* Code_attribute */
-      code_attribute *code_attribute;
+      code_attribute *code_attr;
 
       /* other */
       u8* bytes;
