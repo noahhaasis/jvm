@@ -120,14 +120,21 @@ code_attribute *find_code(cp_info *constant_pool, method_info method_info) {
   return NULL;
 }
 
-Class *Class_from_class_file(ClassFile *class_file) {
+Class *Class_from_class_file(ClassLoader class_loader, ClassFile *class_file) {
   Class *cls = (Class *)malloc(sizeof(Class)); // TODO
   cls->source_class_file = class_file;
   cls->method_map = new HashMap<Method>();
   cls->static_field_map = new HashMap<u64>();
   cls->instance_field_map = new HashMap<FieldInfo>();
 
-  cls->super_class = NULL; // TODO
+
+  // Load the superclass
+  cp_info super_class_info = class_file->constant_pool[class_file->super_class-1];
+  cp_info super_class_name = class_file->constant_pool[super_class_info.as.class_info.name_index-1];
+  cls->super_class = get_or_load_class(class_loader, (String) {
+      .length = super_class_name.as.utf8_info.length,
+      .bytes = (char *)super_class_name.as.utf8_info.bytes,
+    });
 
   // Insert all methods into a hashtable
   for (int i = 0; i < class_file->methods_count; i++) {
@@ -154,7 +161,8 @@ Class *Class_from_class_file(ClassFile *class_file) {
         method);
   }
 
-  u64 field_byte_offset = 0;
+  // If this class has a superclass then reserve space for it's fields
+  u64 field_byte_offset = cls->super_class ? cls->super_class->object_body_size : 0;
   for (u32 i = 0; i < class_file->fields_count; i++) {
     field_info info = class_file->fields[i];
 
@@ -228,9 +236,11 @@ char *find_classfile_in_classpath(ClassLoader loader, String classname) {
   return NULL;
 }
 
+void execute(ClassLoader, Method *);
+
 /* Loads a class from it's class file and convert it into its runtime representation.
  */
-Class *load_class(ClassLoader loader, String classname) {
+internal Class *load_class(ClassLoader loader, String classname) {
   char *path = find_classfile_in_classpath(loader, classname);
   if (!path) {
     return NULL;
@@ -240,14 +250,38 @@ Class *load_class(ClassLoader loader, String classname) {
 
   if (!class_file) return NULL;
 
-  Class *cls = Class_from_class_file(class_file);
+  Class *cls = Class_from_class_file(loader, class_file);
   loader.loaded_classes->insert(classname, cls);
 
   return cls;
 }
 
-Class *get_class(ClassLoader loader, String classname) {
+internal Class *get_class(ClassLoader loader, String classname) {
   return loader.loaded_classes->get(classname);
+}
+
+Class *get_or_load_class(ClassLoader class_loader, String classname) {
+  Class * cls = get_class(class_loader, classname);
+  if (cls) {
+    return cls;
+  }
+
+  cls = load_class(class_loader, classname);
+  if (!cls) {
+    fprintf(stderr, "Failed to find class \"%.*s\"\n", classname.length, classname.bytes);
+    return NULL;
+  }
+
+  Method *clinit = cls->method_map->get(
+    (String) {
+      .length = strlen("<clinit>"),
+      .bytes = (char *)"<clinit>",
+    });
+  if (clinit) {
+    execute(class_loader, clinit);
+  }
+
+  return cls;
 }
 
 void set_static(Class *cls, String fieldname, u64 value) {

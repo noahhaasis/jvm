@@ -17,9 +17,10 @@ struct ClassLoader {
 
 ClassLoader ClassLoader_create(char **classpath, u64 num_paths);
 
-Class *load_class(ClassLoader loader, String classname);
-
-Class *get_class(ClassLoader loader, String classname);
+/* Return a already loaded class or load the class from it's
+ * class file and execute <clinit>
+ */
+Class *get_or_load_class(ClassLoader class_loader, String classname);
 
 struct Method {
   cp_info *constant_pool;

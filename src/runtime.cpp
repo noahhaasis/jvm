@@ -53,7 +53,7 @@ void execute_main(char *class_name) {
   paths[1] = cwd;
   ClassLoader class_loader = ClassLoader_create(paths, 2);
 
-  Class *main_class = load_class(
+  Class *main_class = get_or_load_class(
       class_loader,
       String_from_null_terminated(class_name)
     );
@@ -62,15 +62,6 @@ void execute_main(char *class_name) {
     fprintf(stderr, "Failed to load class \"%s\"\n", class_name);
     return;
   }
-
-  // call <clinit>
-  Method *clinit = main_class->method_map->get(
-      (String) {
-        .length = strlen("<clinit>"),
-        .bytes = (char *)"<clinit>",
-      });
-  execute(class_loader, clinit);
-
 
   Method *main_method = main_class->method_map->get(
       (String) {
@@ -89,30 +80,6 @@ internal inline u64 f_pop(Frame *f) {
 internal inline void f_push(Frame *f, u64 value) {
   *f->sp = value;
   f->sp += 1;
-}
-
-internal Class *get_or_load_class(ClassLoader class_loader, String classname) {
-  Class * cls = get_class(class_loader, classname);
-  if (cls) {
-    return cls;
-  }
-
-  cls = load_class(class_loader, classname);
-  if (!cls) {
-    fprintf(stderr, "Failed to find class \"%.*s\"\n", classname.length, classname.bytes);
-    return NULL;
-  }
-
-  Method *clinit = cls->method_map->get(
-    (String) {
-      .length = strlen("<clinit>"),
-      .bytes = (char *)"<clinit>",
-    });
-  if (clinit) {
-    execute(class_loader, clinit);
-  }
-
-  return cls;
 }
 
 internal Class *load_class_and_field_name_from_field_ref(
@@ -153,7 +120,20 @@ Class *load_class_from_constant_pool(ClassLoader class_loader, cp_info *constant
   return cls;
 }
 
-// Well this is just obviously bad :^)
+FieldInfo *find_instance_field(Class *cls, String fieldname)
+{
+  Class *current_class = cls;
+  // Walk up the inheritance hierarchy to find the field
+  while (current_class) {
+    FieldInfo *info = current_class->instance_field_map->get(fieldname);
+    if (info) {
+      return info;
+    }
+    current_class = current_class->super_class;
+  }
+  return NULL;
+}
+
 struct Object {
   Class *cls;
   u8 data[];
@@ -402,7 +382,7 @@ void execute(ClassLoader class_loader, Method *method) {
       cp_info fieldname = f.constant_pool[
         name_and_type.as.name_and_type_info.name_index-1];
 
-      FieldInfo *field_info = this_ptr->cls->instance_field_map->get(
+      FieldInfo *field_info = find_instance_field(this_ptr->cls,
           (String) {
             .length = fieldname.as.utf8_info.length,
             .bytes = (char *)fieldname.as.utf8_info.bytes,
@@ -425,7 +405,7 @@ void execute(ClassLoader class_loader, Method *method) {
       cp_info fieldname = f.constant_pool[
         name_and_type.as.name_and_type_info.name_index-1];
 
-      FieldInfo *field_info = this_ptr->cls->instance_field_map->get(
+      FieldInfo *field_info = find_instance_field(this_ptr->cls,
           (String) {
             .length = fieldname.as.utf8_info.length,
             .bytes = (char *)fieldname.as.utf8_info.bytes,
