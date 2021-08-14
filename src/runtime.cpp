@@ -84,23 +84,17 @@ internal inline void f_push(Frame *f, u64 value) {
 
 internal Class *load_class_and_field_name_from_field_ref(
     ClassLoader class_loader, cp_info *constant_pool, u16 index,
-    cp_info *out_field_name) {
+    Utf8Info *out_field_name) {
       // Field resolution
-    cp_info fieldref_info = constant_pool[index-1];
-    cp_info class_info = constant_pool[
-      fieldref_info.as.fieldref_info.class_index-1];
-    cp_info class_name = constant_pool[
-      class_info.as.class_info.name_index-1];
+    FieldrefInfo fieldref_info = constant_pool[index-1].as.fieldref_info;
+    Utf8Info *class_name = fieldref_info.class_info->name;
       
     Class *cls = get_or_load_class(class_loader, (String) {
-        .length = class_name.as.utf8_info.length,
-        .bytes = (char *)class_name.as.utf8_info.bytes,
+        .length = class_name->length,
+        .bytes = (char *)class_name->bytes,
       });
 
-    cp_info name_and_type = constant_pool[
-      fieldref_info.as.fieldref_info.name_and_type_index-1];
-    *out_field_name = constant_pool[
-      name_and_type.as.name_and_type_info.name_index-1];
+    *out_field_name = *fieldref_info.name_and_type->name;
 
     return cls;
 }
@@ -108,13 +102,13 @@ internal Class *load_class_and_field_name_from_field_ref(
 Class *load_class_from_constant_pool(ClassLoader class_loader, cp_info *constant_pool, u16 index) {
   cp_info class_info = constant_pool[index-1];
   assert(class_info.tag == CONSTANT_Class);
-  cp_info class_name = constant_pool[class_info.as.class_info.name_index - 1];
+  Utf8Info *class_name = class_info.as.class_info.name;
   
   Class *cls = get_or_load_class(
       class_loader,
       (String) {
-        .length = class_name.as.utf8_info.length,
-        .bytes = (char *)class_name.as.utf8_info.bytes,
+        .length = class_name->length,
+        .bytes = (char *)class_name->bytes,
       });
 
   return cls;
@@ -275,15 +269,15 @@ void execute(ClassLoader class_loader, Method *method) {
     {
       u16 index = read_immediate_i16(&f);
 
-      cp_info field_name;
+      Utf8Info field_name;
       Class *cls = load_class_and_field_name_from_field_ref(
           class_loader, f.constant_pool, index, &field_name);
 
       u32 value = get_static(
           cls,
           (String) {
-            .length = field_name.as.utf8_info.length,
-            .bytes = (char *)field_name.as.utf8_info.bytes, 
+            .length = field_name.length,
+            .bytes = (char *)field_name.bytes,
           });
     
       f_push(&f, value);
@@ -295,7 +289,7 @@ void execute(ClassLoader class_loader, Method *method) {
 
       u32 value = f_pop(&f);
 
-      cp_info field_name;
+      Utf8Info field_name;
 
       Class *cls = load_class_and_field_name_from_field_ref(
           class_loader, f.constant_pool, index, &field_name);
@@ -303,8 +297,8 @@ void execute(ClassLoader class_loader, Method *method) {
       set_static(
           cls,
           (String) {
-            .length = field_name.as.utf8_info.length,
-            .bytes = (char *)field_name.as.utf8_info.bytes,
+            .length = field_name.length,
+            .bytes = (char *)field_name.bytes,
           },
           value);
     } break;
@@ -322,29 +316,20 @@ void execute(ClassLoader class_loader, Method *method) {
     {
       u16 index = read_immediate_i16(&f);
 
-      u16 name_and_type_index =
-        f.constant_pool[index-1].as.methodref_info.name_and_type_index;
-      u16 name_index =
-        f.constant_pool[name_and_type_index-1].as.name_and_type_info.name_index;
-      cp_info method_name_constant = f.constant_pool[name_index-1];
-
-      u16 class_index =
-        f.constant_pool[index-1].as.methodref_info.class_index;
-      u16 class_name_index =
-        f.constant_pool[class_index-1].as.class_info.name_index;
-      cp_info class_name_constant = f.constant_pool[class_name_index-1];
+      Utf8Info *method_name = f.constant_pool[index-1].as.methodref_info.name_and_type->name;
+      Utf8Info *class_name = f.constant_pool[index-1].as.methodref_info.class_info->name;
 
       Class *cls = get_or_load_class(
           class_loader,
           (String) {
-            .length = class_name_constant.as.utf8_info.length,
-            .bytes = (char *)class_name_constant.as.utf8_info.bytes,
+            .length = class_name->length,
+            .bytes = (char *)class_name->bytes,
           });
 
       Method *method = cls->method_map->get(
           (String) {
-            .length = method_name_constant.as.utf8_info.length,
-            .bytes = (char *)method_name_constant.as.utf8_info.bytes,
+            .length = method_name->length,
+            .bytes = (char *)method_name->bytes,
           });
 
       // Pop all args from the stack and store them in locals[] of the new frame
@@ -376,16 +361,12 @@ void execute(ClassLoader class_loader, Method *method) {
  
       Object *this_ptr = (Object *)f_pop(&f);
 
-      cp_info fieldref = f.constant_pool[index-1];
-      cp_info name_and_type = f.constant_pool[
-        fieldref.as.fieldref_info.name_and_type_index-1];
-      cp_info fieldname = f.constant_pool[
-        name_and_type.as.name_and_type_info.name_index-1];
+      Utf8Info *fieldname = f.constant_pool[index-1].as.fieldref_info.name_and_type->name;
 
       FieldInfo *field_info = find_instance_field(this_ptr->cls,
           (String) {
-            .length = fieldname.as.utf8_info.length,
-            .bytes = (char *)fieldname.as.utf8_info.bytes,
+            .length = fieldname->length,
+            .bytes = (char *)fieldname->bytes,
           });
 
       u64 value = ((u64 *)this_ptr->data)[field_info->index];
@@ -399,16 +380,12 @@ void execute(ClassLoader class_loader, Method *method) {
       u64 value = f_pop(&f);
       Object *this_ptr = (Object *)f_pop(&f);
 
-      cp_info fieldref = f.constant_pool[index-1];
-      cp_info name_and_type = f.constant_pool[
-        fieldref.as.fieldref_info.name_and_type_index-1];
-      cp_info fieldname = f.constant_pool[
-        name_and_type.as.name_and_type_info.name_index-1];
+      Utf8Info *fieldname = f.constant_pool[index-1].as.fieldref_info.name_and_type->name;
 
       FieldInfo *field_info = find_instance_field(this_ptr->cls,
           (String) {
-            .length = fieldname.as.utf8_info.length,
-            .bytes = (char *)fieldname.as.utf8_info.bytes,
+            .length = fieldname->length,
+            .bytes = (char *)fieldname->bytes,
           });
       ((u64 *)this_ptr->data)[field_info->index] = value;
     } break;
@@ -419,14 +396,13 @@ void execute(ClassLoader class_loader, Method *method) {
       u16 index = read_immediate_i16(&f);
 
       // Load the class
-      cp_info methodref = f.constant_pool[index-1];
-      cp_info class_info = f.constant_pool[methodref.as.methodref_info.class_index-1];
-      cp_info class_name = f.constant_pool[class_info.as.class_info.name_index-1];
+      MethodrefInfo methodref = f.constant_pool[index-1].as.methodref_info;
+      Utf8Info *class_name = methodref.class_info->name;
       Class *cls = get_or_load_class(
           class_loader,
           (String) {
-            .length = class_name.as.utf8_info.length,
-            .bytes = (char *)class_name.as.utf8_info.bytes, 
+            .length = class_name->length,
+            .bytes = (char *)class_name->bytes,
           });
 
       if (!cls) {
@@ -435,14 +411,11 @@ void execute(ClassLoader class_loader, Method *method) {
       }
 
       // Get the method
-      cp_info name_and_type = f.constant_pool[
-        methodref.as.methodref_info.name_and_type_index-1];
-      cp_info name_info = f.constant_pool[
-        name_and_type.as.name_and_type_info.name_index-1];
+      Utf8Info *method_name = methodref.name_and_type->name;
       Method *method = cls->method_map->get(
           (String) {
-            .length = name_info.as.utf8_info.length,
-            .bytes = (char *)name_info.as.utf8_info.bytes,
+            .length = method_name->length,
+            .bytes = (char *)method_name->bytes,
           });
      
       Frame new_frame = create_frame_from_method(method);
@@ -465,14 +438,13 @@ void execute(ClassLoader class_loader, Method *method) {
       u16 index = read_immediate_i16(&f);
 
       // Load the class
-      cp_info methodref = f.constant_pool[index-1];
-      cp_info class_info = f.constant_pool[methodref.as.methodref_info.class_index-1];
-      cp_info class_name = f.constant_pool[class_info.as.class_info.name_index-1];
+      MethodrefInfo methodref = f.constant_pool[index-1].as.methodref_info;
+      Utf8Info *class_name = methodref.class_info->name;
       Class *cls = get_or_load_class(
           class_loader,
           (String) {
-            .length = class_name.as.utf8_info.length,
-            .bytes = (char *)class_name.as.utf8_info.bytes, 
+            .length = class_name->length,
+            .bytes = (char *)class_name->bytes,
           });
       if (!cls) {
         f.sp -= 1; // Pop this_ptr
@@ -480,14 +452,11 @@ void execute(ClassLoader class_loader, Method *method) {
       }
 
       // Get the method
-      cp_info name_and_type = f.constant_pool[
-        methodref.as.methodref_info.name_and_type_index-1];
-      cp_info name_info = f.constant_pool[
-        name_and_type.as.name_and_type_info.name_index-1];
+      Utf8Info *method_name = methodref.name_and_type->name;
       Method *method = cls->method_map->get( 
           (String) {
-            .length = name_info.as.utf8_info.length,
-            .bytes = (char *)name_info.as.utf8_info.bytes,
+            .length = method_name->length,
+            .bytes = (char *)method_name->bytes,
           });
      
       // Put this_ptr in locals[0]

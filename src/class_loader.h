@@ -26,8 +26,7 @@ struct Method {
   cp_info *constant_pool;
   code_attribute *code_attr;
   method_descriptor descriptor;
-  // TODO(noah): Make this a pointer?
-  u16 name_index; // 0 based
+  Utf8Info *name;
 };
 
 struct FieldInfo {

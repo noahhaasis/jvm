@@ -105,14 +105,13 @@ method_descriptor parse_method_descriptor(String src) {
 
 code_attribute *find_code(cp_info *constant_pool, method_info method_info) {
   for (int i = 0; i < method_info.attributes_count; i++) {
-    attribute_info info = method_info.attributes[i];
-    cp_info name_constant = constant_pool[info.attribute_name_index-1];
+    Utf8Info *attribute_name = method_info.attributes[i].attribute_name;
 
     if (strncmp(
           "Code",
-          (const char *)name_constant.as.utf8_info.bytes,
-          name_constant.as.utf8_info.length) == 0) {
-      return info.as.code_attr;
+          (const char *)attribute_name->bytes,
+          attribute_name->length) == 0) {
+      return method_info.attributes[i].as.code_attr;
     }
   }
 
@@ -129,11 +128,10 @@ Class *Class_from_class_file(ClassLoader class_loader, ClassFile *class_file) {
 
 
   // Load the superclass
-  cp_info super_class_info = class_file->constant_pool[class_file->super_class-1];
-  cp_info super_class_name = class_file->constant_pool[super_class_info.as.class_info.name_index-1];
+  Utf8Info *super_class_name = class_file->constant_pool[class_file->super_class-1].as.class_info.name;
   cls->super_class = get_or_load_class(class_loader, (String) {
-      .length = super_class_name.as.utf8_info.length,
-      .bytes = (char *)super_class_name.as.utf8_info.bytes,
+      .length = super_class_name->length,
+      .bytes = (char *)super_class_name->bytes,
     });
 
   // Insert all methods into a hashtable
@@ -142,21 +140,19 @@ Class *Class_from_class_file(ClassLoader class_loader, ClassFile *class_file) {
     method->constant_pool = class_file->constant_pool;
 
     method_info info = class_file->methods[i];
-    method->name_index = info.name_index - 1;
+    method->name = info.name;
 
-    cp_info descriptor_string_constant = class_file->constant_pool[info.descriptor_index-1];
     method->descriptor = parse_method_descriptor(
         (String) {
-          .length = descriptor_string_constant.as.utf8_info.length,
-          .bytes = (char *)descriptor_string_constant.as.utf8_info.bytes,
+          .length = info.descriptor->length,
+          .bytes = (char *)info.descriptor->bytes,
         });
     method->code_attr = find_code(class_file->constant_pool, info);
 
-    cp_info method_name_constant = class_file->constant_pool[method->name_index];
     cls->method_map->insert(
         (String) {
-          .length = method_name_constant.as.utf8_info.length,
-          .bytes = (char *)method_name_constant.as.utf8_info.bytes,
+          .length = method->name->length,
+          .bytes = (char *)method->name->bytes,
         },
         method);
   }
@@ -164,27 +160,25 @@ Class *Class_from_class_file(ClassLoader class_loader, ClassFile *class_file) {
   // If this class has a superclass then reserve space for it's fields
   u64 field_byte_offset = cls->super_class ? cls->super_class->object_body_size : 0;
   for (u32 i = 0; i < class_file->fields_count; i++) {
-    field_info info = class_file->fields[i];
+    field_info field = class_file->fields[i];
 
-    if (info.access_flags & FIELD_ACC_STATIC) {
+    if (field.access_flags & FIELD_ACC_STATIC) {
       // TODO: Handle static field
     } else {
-      cp_info field_descriptor = class_file->constant_pool[info.descriptor_index-1];
       primitive_type field_type = parse_primitive_type(
           (String) {
-            .length = field_descriptor.as.utf8_info.length,
-            .bytes = (char *)field_descriptor.as.utf8_info.bytes
+            .length = field.descriptor->length,
+            .bytes = (char *)field.descriptor->bytes,
           });
       // TODO: Support different sized types
-      cp_info field_name = class_file->constant_pool[info.name_index-1];
       u16 field_size = 8;
 
       FieldInfo *fieldInfo = (FieldInfo *)malloc(sizeof(FieldInfo));
       *fieldInfo = {field_byte_offset};
 
       cls->instance_field_map->insert((String) {
-            .length = field_name.as.utf8_info.length,
-            .bytes = (char *)field_name.as.utf8_info.bytes
+            .length = field.name->length,
+            .bytes = (char *)field.name->bytes,
           }, fieldInfo);
 
       field_byte_offset += field_size;

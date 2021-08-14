@@ -28,65 +28,78 @@
 
 void pretty_print_constant_tag(u8 tag);
 
+struct Utf8Info {
+  u16 length;
+  u8* bytes;
+};
+
+struct NameAndTypeInfo {
+  Utf8Info *name;
+  Utf8Info *descriptor;
+};
+
+struct ClassInfo {
+  Utf8Info *name;
+};
+
+struct FieldrefInfo {
+  ClassInfo *class_info;
+  NameAndTypeInfo *name_and_type;
+};
+
+struct MethodrefInfo {
+  ClassInfo *class_info;
+  NameAndTypeInfo *name_and_type;
+};
+
+struct InterfaceMethodrefInfo {
+  ClassInfo *class_info;
+  NameAndTypeInfo *name_and_type;
+};
+
+struct StringInfo {
+  Utf8Info *string;
+};
+
+struct IntegerInfo {
+  u32 bytes;
+};
+
+struct MethodHandleInfo {
+  u8 reference_kind;
+  u16 reference_index;
+};
+
+struct MethodTypeInfo {
+  Utf8Info *descriptor;
+};
+
+struct InvokeDynamicInfo {
+  u16 bootstrap_method_attr_index;
+  NameAndTypeInfo *name_and_type;
+};
+
+// TODO: Store the tag in a seperate list.
+// The tag is only needed for verification
 struct cp_info {
     u8 tag;
     union {
-      struct {
-        u16 name_index;
-      } class_info;
-
-      struct {
-        u16 class_index;
-        u16 name_and_type_index;
-      } fieldref_info;
-
-      struct {
-        u16 class_index;
-        u16 name_and_type_index;
-      } methodref_info;
-
-      struct {
-        u16 class_index;
-        u16 name_and_type_index;
-      } interface_methodref_info;
-
-      struct {
-        u16 string_index;
-      } string_info;
-
-      struct {
-        u32 bytes;
-      } integer_info;
-
+      ClassInfo class_info;
+      FieldrefInfo fieldref_info;
+      MethodrefInfo methodref_info;
+      InterfaceMethodrefInfo interface_methodref_info;
+      StringInfo string_info;
+      IntegerInfo integer_info;
       float  float_value;
       i64    long_value;
       double double_value;
-
-      struct {
-        u16 name_index;
-        u16 descriptor_index;
-      } name_and_type_info;
-
-      struct {
-        u16 length;
-        u8* bytes;
-      } utf8_info;
-
-      struct {
-        u8 reference_kind;
-        u16 reference_index;
-      } method_handle_info;
-
-      struct {
-        u16 descriptor_index;
-      } method_type_info;
-
-      struct {
-        u16 bootstrap_method_attr_index;
-        u16 name_and_type_index;
-      } invoke_dynamic_info;
+      NameAndTypeInfo name_and_type_info;
+      Utf8Info utf8_info;
+      MethodHandleInfo method_handle_info;
+      MethodTypeInfo method_type_info;
+      InvokeDynamicInfo invoke_dynamic_info;
     } as;
-    // TODO(noah): rename "info" to "as"
+    // TODO: remove "as"
     /*u8 info[]*/;
 };
 
@@ -158,12 +171,12 @@ enum attribute_type {
 };
 
 struct attribute_info {
-    u16 attribute_name_index;
+    Utf8Info *attribute_name;
     u32 attribute_length;
     attribute_type type;
     union {
       /* SourceFile_attribute */
-      u16 sourcefile_index;
+      Utf8Info *sourcefile;
 
       /* ConstantValue_attribute */
       u16 constantvalue_index;
@@ -180,8 +193,8 @@ struct attribute_info {
 
 struct method_info {
     u16             access_flags;
-    u16             name_index;
-    u16             descriptor_index;
+    Utf8Info *      name;
+    Utf8Info *      descriptor;
     u16             attributes_count;
     attribute_info *attributes;
     /* attribute_info attributes[attributes_count]; */
@@ -204,8 +217,8 @@ struct method_descriptor {
 
 struct field_info {
     u16             access_flags;
-    u16             name_index;
-    u16             descriptor_index;
+    Utf8Info *      name;
+    Utf8Info *      descriptor;
     u16             attributes_count;
     attribute_info *attributes;
     /* attribute_info attributes[attributes_count]; */

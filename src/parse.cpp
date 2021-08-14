@@ -40,15 +40,14 @@ attribute_type parse_attribute_type(char *unicode_name, int length) {
 
 attribute_info parse_attribute_info(ClassFile *class_file, u8 *data, int *out_byte_size /* How many bytes were parsed */) {
   attribute_info info = (attribute_info) { };
-  info.attribute_name_index = __builtin_bswap16(*((u16 *) data));
+  u16 attribute_name_index = __builtin_bswap16(*((u16 *) data));
+  info.attribute_name = &class_file->constant_pool[attribute_name_index-1].as.utf8_info;
   info.attribute_length = __builtin_bswap32(*((u32 *) (data + 2)));
 
-  cp_info constant = class_file->constant_pool[info.attribute_name_index-1];
-  info.type = parse_attribute_type((char *)constant.as.utf8_info.bytes, constant.as.utf8_info.length);
+  info.type = parse_attribute_type((char *)info.attribute_name->bytes, info.attribute_name->length);
 
 #ifdef DEBUG
-  assert(class_file->constant_pool[info.attribute_name_index-1].tag == CONSTANT_Utf8);
-  printf("Attribute name: \"%.*s\"\n", constant.as.utf8_info.length, constant.as.utf8_info.bytes);
+  assert(class_file->constant_pool[attribute_name_index-1].tag == CONSTANT_Utf8);
 #endif
 
 
@@ -103,14 +102,15 @@ attribute_info parse_attribute_info(ClassFile *class_file, u8 *data, int *out_by
   } break;
   case SourceFile_attribute:
   {
-    info.as.sourcefile_index = __builtin_bswap16(*((u16 *)(data+offset)));
+    u16 sourcefile_index = __builtin_bswap16(*((u16 *)(data+offset)));
+    info.as.sourcefile = &class_file->constant_pool[sourcefile_index-1].as.utf8_info;
     offset += 2;
   } break;
   case LineNumberTable_attribute: // TODO
   case StackMapTable_attribute: // TODO
   case Unknown_attribute:
   default:
-    printf("Unhandled attribute with name_index %d\n", info.attribute_name_index);
+    printf("Unhandled attribute with name %.*s\n", info.attribute_name->length, info.attribute_name->bytes);
     info.as.bytes = (u8 *)malloc(info.attribute_length);
     memcpy(info.as.bytes, data+offset, info.attribute_length);
     offset += info.attribute_length;
@@ -130,8 +130,13 @@ method_info parse_method_info(ClassFile *class_file, u8 *data, int *out_byte_siz
   method_info info = (method_info) { };
 
   info.access_flags = __builtin_bswap16(*((u16 *) data));
-  info.name_index = __builtin_bswap16(*(((u16 *) data)+1));
-  info.descriptor_index = __builtin_bswap16(*(((u16 *) data)+2));
+
+  u16 name_index = __builtin_bswap16(*(((u16 *) data)+1));
+  info.name = &class_file->constant_pool[name_index-1].as.utf8_info;
+
+  u16 descriptor_index = __builtin_bswap16(*(((u16 *) data)+2));
+  info.descriptor = &class_file->constant_pool[descriptor_index-1].as.utf8_info;
+
   info.attributes_count = __builtin_bswap16(*(((u16 *) data)+3));
   offset = 8;
 
@@ -158,8 +163,11 @@ field_info parse_field_info(ClassFile *class_file, u8 *data, int *out_byte_size 
   int offset = 0;
 
   info.access_flags = __builtin_bswap16(*((u16 *) data));
-  info.name_index = __builtin_bswap16(*(((u16 *) data)+1));
-  info.descriptor_index = __builtin_bswap16(*(((u16 *) data)+2));
+  u16 name_index = __builtin_bswap16(*(((u16 *) data)+1));
+  info.name = &class_file->constant_pool[name_index-1].as.utf8_info;
+
+  u16 descriptor_index = __builtin_bswap16(*(((u16 *) data)+2));
+  info.descriptor = &class_file->constant_pool[descriptor_index-1].as.utf8_info;
   info.attributes_count = __builtin_bswap16(*(((u16 *) data)+3));
   offset += 8;
 
@@ -183,26 +191,31 @@ field_info parse_field_info(ClassFile *class_file, u8 *data, int *out_byte_size 
   return info;
 }
 
-cp_info parse_cp_info(u8 *data, int *out_byte_size /* How many bytes were parsed */) {
+cp_info parse_cp_info(cp_info *constant_pool, u8 *data, int *out_byte_size /* How many bytes were parsed */) {
   cp_info info = (cp_info) { };
   info.tag = data[0];
 
   switch (info.tag) {
   case CONSTANT_Methodref:
   {
-    info.as.methodref_info.class_index = __builtin_bswap16(*((u16 *)(data+1)));
-    info.as.methodref_info.name_and_type_index = __builtin_bswap16(*((u16 *)(data+3)));
+    u16 class_index = __builtin_bswap16(*((u16 *)(data+1)));
+    info.as.methodref_info.class_info = &constant_pool[class_index-1].as.class_info;
+    u16 name_and_type_index = __builtin_bswap16(*((u16 *)(data+3)));
+    info.as.methodref_info.name_and_type = &constant_pool[name_and_type_index-1].as.name_and_type_info;
     *out_byte_size = 5;
   } break;
   case CONSTANT_Class:
   {
-    info.as.class_info.name_index = __builtin_bswap16(*((u16 *)(data+1)));
+    u16 name_index = __builtin_bswap16(*((u16 *)(data+1)));
+    info.as.class_info.name = &constant_pool[name_index-1].as.utf8_info;
     *out_byte_size = 3;
   } break;
   case CONSTANT_NameAndType:
   {
-    info.as.name_and_type_info.name_index = __builtin_bswap16(*((u16 *)(data+1)));
-    info.as.name_and_type_info.descriptor_index = __builtin_bswap16(*((u16 *)(data+3)));
+    u16 name_index = __builtin_bswap16(*((u16 *)(data+1)));
+    info.as.name_and_type_info.name = &constant_pool[name_index-1].as.utf8_info;
+    u16 descriptor_index = __builtin_bswap16(*((u16 *)(data+3)));
+    info.as.name_and_type_info.descriptor = &constant_pool[descriptor_index-1].as.utf8_info;
     *out_byte_size = 5;
   } break;
   case CONSTANT_Utf8:
@@ -215,13 +228,16 @@ cp_info parse_cp_info(u8 *data, int *out_byte_size /* How many bytes were parsed
   } break;
   case CONSTANT_Fieldref:
   {
-    info.as.fieldref_info.class_index = __builtin_bswap16(*((u16 *)(data+1)));
-    info.as.fieldref_info.name_and_type_index = __builtin_bswap16(*((u16 *)(data+3)));
+    u16 class_index = __builtin_bswap16(*((u16 *)(data+1)));
+    info.as.fieldref_info.class_info = &constant_pool[class_index-1].as.class_info;
+    u16 name_and_type_index = __builtin_bswap16(*((u16 *)(data+3)));
+    info.as.fieldref_info.name_and_type = &constant_pool[name_and_type_index-1].as.name_and_type_info;
     *out_byte_size = 5;
   } break;
   case CONSTANT_String:
   {
-    info.as.string_info.string_index = __builtin_bswap16(*((u16 *)(data+1)));
+    u16 string_index = __builtin_bswap16(*((u16 *)(data+1)));
+    info.as.string_info.string = &constant_pool[string_index-1].as.utf8_info;
     *out_byte_size = 3;
   } break;
   case CONSTANT_Double:
@@ -258,7 +274,7 @@ ClassFile *parse_class_file(char *filename) {
   int byte_size = 0;
   int data_index = 10; // Skip what we already parsed
   for (int i = 0; i < class_file->constant_pool_count-1; i++) {
-    class_file->constant_pool[i] = parse_cp_info(data + data_index, &byte_size);
+    class_file->constant_pool[i] = parse_cp_info(class_file->constant_pool, data + data_index, &byte_size);
     if (class_file->constant_pool[i].tag == CONSTANT_Long
         || class_file->constant_pool[i].tag == CONSTANT_Double) {
       // NOTE(Noah): Indexing is still right. We just have a uninitialized field
@@ -318,7 +334,7 @@ ClassFile *parse_class_file(char *filename) {
     }
   }
 
-  printf("bytes read: %d; file-size: %ld\n", data_index, stat.st_size);
+  assert(data_index == stat.st_size); // bytes read == file size
 
   munmap(data, stat.st_size);
   close(fd); // close after the mmap?
