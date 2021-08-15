@@ -184,6 +184,16 @@ void execute(ClassLoader class_loader, Method *method) {
       *f.sp = n;
       f.sp += 1;
     } break;
+    case sipush:
+    {
+      u16 byte = read_immediate_i16(&f);
+      f_push(&f, byte);
+    } break;
+    case ldc:
+    {
+      u8 index = read_immediate_u8(&f);
+      f_push(&f, f.constant_pool[index-1].as.integer_value);
+    } break;
     /* iload_<n> */
     case 26: case 27: case 28: case 29:
     {
@@ -215,32 +225,15 @@ void execute(ClassLoader class_loader, Method *method) {
     case dup_instr: { f_push(&f, *(f.sp-1)); } break;
     case ifeq: { ifCOND(==) } break;
     case ifne: { ifCOND(!=) } break;
-    case if_icmpgt:
-    {
-      int offset = read_immediate_i16(&f);
-
-      u32 value2 = f_pop(&f);
-      u32 value1 = f_pop(&f);
-
-      if (value1 > value2) { // Branch succeeds
-        f.pc += offset - 3;
-      }
-    } break;
-    case if_icmpne:
-    {
-      int offset = read_immediate_i16(&f);
-
-      u32 value2 = f_pop(&f);
-      u32 value1 = f_pop(&f);
-
-      if (value1 != value2) { // Branch succeeds
-        f.pc += offset - 3;
-      }
-    } break;
+    case if_icmpgt: { ificmpCOND(>); } break;
+    case if_icmpge: { ificmpCOND(>=); } break;
+    case if_icmpne: { ificmpCOND(!=); } break;
     case ireturn:
     {
       u32 value = f_pop(&f);
+#ifdef DEBUG
       printf("Returning int %d\n", value);
+#endif
       if (frames.empty()) {
         goto exit;
       }
@@ -255,7 +248,9 @@ void execute(ClassLoader class_loader, Method *method) {
     } break;
     case return_void:
     {
+#ifdef DEBUG
       printf("Returning void\n");
+#endif
       if (frames.empty()) {
         goto exit;
       }
@@ -302,9 +297,9 @@ void execute(ClassLoader class_loader, Method *method) {
           },
           value);
     } break;
-    case imul: { iBINOP(*) } break;
-    case iadd: { iBINOP(+) } break;
-    case isub: { iBINOP(-) } break;
+    case imul: { iBINOP(*); } break;
+    case iadd: { iBINOP(+); } break;
+    case isub: { iBINOP(-); } break;
     case iinc:
     {
       u8 index = *(f.pc++);
@@ -486,7 +481,11 @@ void execute(ClassLoader class_loader, Method *method) {
 
       // initialize instance vars to their default values
     } break;
-    default: printf("Unhandled instruction with opcode %d\n", bytecode);
+    default:
+    {
+      printf("Unhandled instruction with opcode %d\n", bytecode);
+      exit(-1);
+    }
     }
   }
 

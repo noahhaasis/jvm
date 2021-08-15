@@ -91,6 +91,7 @@ struct cp_info {
       StringInfo string_info;
       IntegerInfo integer_info;
       float  float_value;
+      i32    integer_value;
       i64    long_value;
       double double_value;
       NameAndTypeInfo name_and_type_info;
@@ -113,6 +114,7 @@ struct exception_table_entry {
 enum instruction_type {
   iconst        = 2,  /* 2 - 8 ; Push iconst_<n>*/
   bipush        = 16,
+  sipush        = 17,
   ldc           = 18,
   iload         = 21,
   aload         = 25,
@@ -130,6 +132,7 @@ enum instruction_type {
   ifeq          = 153,
   ifne          = 154,
   if_icmpne     = 160,
+  if_icmpge     = 162,
   if_icmpgt     = 163,
   goto_instr    = 167,
   ireturn       = 172,

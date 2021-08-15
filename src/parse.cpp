@@ -248,7 +248,15 @@ cp_info parse_cp_info(cp_info *constant_pool, u8 *data, int *out_byte_size /* Ho
     info.as.double_value = (high_bytes << 32)| low_bytes;
     *out_byte_size = 9;
   } break;
-  default: printf("Unhandled cp_info type %u\n", info.tag); break;
+  case CONSTANT_Integer:
+  {
+    info.as.integer_value = __builtin_bswap32(*((u32 *)(data + 1)));
+    *out_byte_size = 5;
+  } break;
+  default:
+  {
+    printf("Unhandled cp_info type %u\n", info.tag);
+  }
   }
   return info;
 }
