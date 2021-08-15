@@ -156,7 +156,7 @@ internal inline u8 read_immediate_u8(Frame *f) {
     if (value operator 0) { /* Branch succeeds */ \
       f.pc += offset - 3;                         \
     }                                             \
-  } while(0);                                     \
+  } while(0)                                     \
 
 
 #define iBINOP(operator)                            \
@@ -447,64 +447,56 @@ do_iconst_n:
       u8 n = CURRENT_INSTR - 3;
       *f.sp = n;
       f.sp += 1;
-      DISPATCH();
-    }
+    } DISPATCH();
 do_bipush:
     {
       u8 n = *(f.pc++);
       *f.sp = n;
       f.sp += 1;
-      DISPATCH();
-    }
+    } DISPATCH();
 do_sipush:
     {
       u16 byte = read_immediate_i16(&f);
       f_push(&f, byte);
-      DISPATCH();
-    }
+    } DISPATCH();
 do_ldc:
     {
       u8 index = read_immediate_u8(&f);
       f_push(&f, f.constant_pool[index-1].as.integer_value);
-      DISPATCH();
-    }
+    } DISPATCH();
     /* iload_<n> */
 do_iload_n:
     {
       u8 local_var_index = CURRENT_INSTR - 26;
       *f.sp = f.locals[local_var_index];
       f.sp += 1;
-      DISPATCH();
-    }
+    } DISPATCH();
 do_aload_n:
     {
       u16 local_var_index = CURRENT_INSTR - 42;
       f_push(&f, f.locals[local_var_index]);
-      DISPATCH();
-    }
+    } DISPATCH();
 do_istore_n:
     {
       u8 local_var_index = CURRENT_INSTR - 59;
       f.sp -= 1;
       f.locals[local_var_index] = *f.sp;
-      DISPATCH();
-    }
+    } DISPATCH();
     /* astore_<n> */
 do_astore_n:
     {
       u16 local_var_index = CURRENT_INSTR - 75;
       u64 reference = f_pop(&f);
       f.locals[local_var_index] = reference;
-      DISPATCH();
-    }
+    } DISPATCH();
 do_pop:
     { f.sp -= 1; } DISPATCH();
 do_dup:
     { f_push(&f, *(f.sp-1)); } DISPATCH();
 do_ifeq:
-    { ifCOND(==) } DISPATCH();
+    { ifCOND(==); } DISPATCH();
 do_ifne:
-    { ifCOND(!=) } DISPATCH();
+    { ifCOND(!=); } DISPATCH();
 do_if_icmpgt:
     { ificmpCOND(>); } DISPATCH();
 do_if_icmpge:
@@ -651,7 +643,7 @@ do_getfield:
 
       f_push(&f, value);
     } DISPATCH();
-    do_putfield:
+do_putfield:
     {
       u16 index = read_immediate_i16(&f);
  
@@ -667,7 +659,7 @@ do_getfield:
           });
       ((u64 *)this_ptr->data)[field_info->index] = value;
     } DISPATCH();
-    do_invokevirtual:
+do_invokevirtual:
     {
       // https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-6.html#jvms-6.5.invokevirtual
       // TODO: copied from invokespecial => refactor
