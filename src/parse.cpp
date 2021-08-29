@@ -25,7 +25,7 @@ void pretty_print_constant_tag(u8 tag) {
     case CONSTANT_MethodHandle: printf("MethodHandle\n"); break;
     case CONSTANT_MethodType: printf("MethodType\n"); break;
     case CONSTANT_InvokeDynamic: printf("InvokeDynamic\n"); break;
-    default: printf("Unknown constant tag %d\n", tag);
+    default: ; // printf("Unknown constant tag %d\n", tag);
   }
 }
 
@@ -110,7 +110,7 @@ attribute_info parse_attribute_info(ClassFile *class_file, u8 *data, int *out_by
   case StackMapTable_attribute: // TODO
   case Unknown_attribute:
   default:
-    printf("Unhandled attribute with name %.*s\n", info.attribute_name->length, info.attribute_name->bytes);
+    // printf("Unhandled attribute with name %.*s\n", info.attribute_name->length, info.attribute_name->bytes);
     info.as.bytes = (u8 *)malloc(info.attribute_length);
     memcpy(info.as.bytes, data+offset, info.attribute_length);
     offset += info.attribute_length;
@@ -255,7 +255,7 @@ cp_info parse_cp_info(cp_info *constant_pool, u8 *data, int *out_byte_size /* Ho
   } break;
   default:
   {
-    printf("Unhandled cp_info type %u\n", info.tag);
+    // printf("Unhandled cp_info type %u\n", info.tag);
   }
   }
   return info;
@@ -322,7 +322,6 @@ ClassFile *parse_class_file(char *filename) {
     class_file->methods = NULL;
   } else {
     class_file->methods = (method_info *)malloc(sizeof(method_info) * class_file->methods_count);
-    printf("methods count %d\n", class_file->methods_count);
     for (int i = 0; i < class_file->methods_count; i++) {
       int method_info_size = 0;
       class_file->methods[i] = parse_method_info(class_file, data+data_index, &method_info_size);

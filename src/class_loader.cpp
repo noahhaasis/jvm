@@ -93,7 +93,7 @@ method_descriptor parse_method_descriptor(String src) {
   } break;
   default:
   {
-      printf("Failed to parse return type. Rest of signature TODO");
+      // printf("Failed to parse return type. Rest of signature TODO");
       assert(0);
   }
   }
@@ -115,7 +115,7 @@ code_attribute *find_code(cp_info *constant_pool, method_info method_info) {
     }
   }
 
-  printf("Code attribute not found\n");
+  // printf("Code attribute not found\n");
   return NULL;
 }
 
@@ -262,7 +262,7 @@ Class *get_or_load_class(ClassLoader class_loader, String classname) {
 
   cls = load_class(class_loader, classname);
   if (!cls) {
-    fprintf(stderr, "Failed to find class \"%.*s\"\n", classname.length, classname.bytes);
+    // fprintf(stderr, "Failed to find class \"%.*s\"\n", classname.length, classname.bytes);
     return NULL;
   }
 

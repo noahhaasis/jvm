@@ -120,9 +120,11 @@ enum instruction_type {
   aload         = 25,
   iload_n       = 26, /* 26 - 29 */
   aload_n       = 42, /* 42 - 45 */
+  iaload        = 46,
   istore        = 54,
   istore_n      = 59, /* 59 - 62 */
   astore_n      = 75, /* 75 - 78 */
+  iastore       = 79,
   pop           = 87,
   dup_instr     = 89, // damn you <unistd.h> for taking that beautiful name
   iadd          = 96,
@@ -145,6 +147,7 @@ enum instruction_type {
   invokespecial = 183,
   invokestatic  = 184,
   new_instr     = 187,
+  new_array     = 188,
   undefined,
 };
 

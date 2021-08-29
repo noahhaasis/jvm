@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+# Every directory is a test case
+# compare the output of running it's Main.java with the provided "expected_output" file
+
+AllTestsSucceeded="1"
+Directories=$(find . -maxdepth 1 -mindepth 1 -type d -printf '%f\n')
+for TestDir in $Directories
+do
+  cd $TestDir
+  if [ ! -f "disabled" ] # Tests are disabled if there is a file named "disabled" in their directory
+  then
+    javac Main.java
+    ../../bin/main Main > "test_output"
+    diff --color test_output expected_output
+    if [ $(echo $?) != "0" ]
+    then
+      echo ""
+      echo -e "\e[31mTest \"$TestDir\" failed!"
+      AllTestsSucceeded="0"
+    else
+      rm test_output
+    fi
+    rm *.class
+  fi
+  cd ..
+done
+
+if [ "$AllTestsSucceeded" == "1" ]
+then
+  echo -e "\e[32mAll tests run successfully!"
+fi

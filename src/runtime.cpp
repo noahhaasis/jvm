@@ -59,7 +59,6 @@ void execute_main(char *class_name) {
     );
 
   if (!main_class) {
-    fprintf(stderr, "Failed to load class \"%s\"\n", class_name);
     return;
   }
 
@@ -176,6 +175,35 @@ internal inline u8 read_immediate_u8(Frame *f) {
       }                                                   \
   } while(0)
 
+enum ArrayType {
+  T_BOOLEAN = 4,
+  T_CHAR    = 5,
+  T_FLOAT   = 6,
+  T_DOUBLE  = 7,
+  T_BYTE    = 8,
+  T_SHORT   = 9,
+  T_INT     = 10,
+  T_LONG    = 11,
+};
+
+u8 ArrayType_byte_size(ArrayType type) {
+  switch (type) {
+  case T_BOOLEAN: return 1;
+  case T_CHAR:    return 1;
+  case T_FLOAT:   return 4;
+  case T_DOUBLE:  return 8;
+  case T_BYTE:    return 1;
+  case T_SHORT:   return 2;
+  case T_INT:     return 4;
+  case T_LONG:    return 8;
+  default:
+  {
+    // printf("Unknown array type %d\n", type);
+    assert(false);
+  }
+  }
+}
+
 void execute(ClassLoader class_loader, Method *method) {
   static void* dispatch_table[] = {
       [0] = &&not_implemented,
@@ -219,7 +247,7 @@ void execute(ClassLoader class_loader, Method *method) {
       [43] = &&do_aload_n,
       [44] = &&do_aload_n,
       [45] = &&do_aload_n,
-      [46] = &&not_implemented,
+      [46] = &&do_iaload,
       [47] = &&not_implemented,
       [48] = &&not_implemented,
       [49] = &&not_implemented,
@@ -252,7 +280,7 @@ void execute(ClassLoader class_loader, Method *method) {
       [76] = &&do_astore_n,
       [77] = &&do_astore_n,
       [78] = &&do_astore_n,
-      [79] = &&not_implemented,
+      [79] = &&do_iastore,
       [80] = &&not_implemented,
       [81] = &&not_implemented,
       [82] = &&not_implemented,
@@ -361,7 +389,7 @@ void execute(ClassLoader class_loader, Method *method) {
       [185] = &&not_implemented,
       [186] = &&not_implemented,
       [187] = &&do_new_instr,
-      [188] = &&not_implemented,
+      [188] = &&do_new_array,
       [189] = &&not_implemented,
       [190] = &&not_implemented,
       [191] = &&not_implemented,
@@ -476,6 +504,10 @@ do_aload_n:
       u16 local_var_index = CURRENT_INSTR - 42;
       f_push(&f, f.locals[local_var_index]);
     } DISPATCH();
+do_iaload:
+    {
+      // TODO
+    } DISPATCH();
 do_istore_n:
     {
       u8 local_var_index = CURRENT_INSTR - 59;
@@ -488,6 +520,10 @@ do_astore_n:
       u16 local_var_index = CURRENT_INSTR - 75;
       u64 reference = f_pop(&f);
       f.locals[local_var_index] = reference;
+    } DISPATCH();
+do_iastore:
+    {
+      // TODO
     } DISPATCH();
 do_pop:
     { f.sp -= 1; } DISPATCH();
@@ -755,6 +791,16 @@ do_new_instr:
       f_push(&f, (u64) obj);
 
       // initialize instance vars to their default values
+    } DISPATCH();
+do_new_array:
+    {
+      i32 count = f_pop(&f);
+      u8 atype = read_immediate_u8(&f);
+
+      i64 array_size = count * ArrayType_byte_size((ArrayType)atype);
+      void *array = calloc(array_size, 2);
+      f_push(&f, (u64) array);
+
     } DISPATCH();
 do_iload:
 do_aload:
