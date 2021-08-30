@@ -11,7 +11,6 @@ struct ClassLoader {
   char **classpath;
   u64 num_paths;
 
-  // Map<String, class>
   HashMap<Class> *loaded_classes;
 };
 
@@ -40,13 +39,10 @@ struct Class {
 
   Class *super_class;
 
-  // Map<string, Method>
   HashMap<Method> *method_map;
 
-  // Map<string, field>
   HashMap<u64> *static_field_map;
 
-  // Map<String, u64>
   HashMap<FieldInfo> *instance_field_map;
 
   u32 object_body_size;

@@ -18,17 +18,6 @@ void ClassLoader_destroy() {
   // TODO
 }
 
-primitive_type parse_primitive_type(String src) {
-  switch (*src.bytes) {
-    case 'I': return int_t;
-    case 'D': return double_t;
-    default:
-    {
-      assert(0);
-    }
-  }
-}
-
 method_descriptor parse_method_descriptor(String src) {
     /* Grammar:
     MethodDescriptor:
@@ -45,33 +34,18 @@ method_descriptor parse_method_descriptor(String src) {
         V
     */
   method_descriptor descriptor = (method_descriptor){ };
-  descriptor.parameter_types = Vector<primitive_type>();
+  descriptor.parameter_types = Vector<JavaType>();
 
   assert(src.length >= 3);
   assert(src.bytes[0] == '(');
 
   int offset = 1;
-  for (; offset < (src.length - 1) && src.bytes[offset] != ')'; ++offset) {
-    switch(src.bytes[offset]) {
-    case 'I':
-    {
-      descriptor.parameter_types.push(int_t);
-    } break;
-    case 'D':
-    {
-      descriptor.parameter_types.push(double_t);
-    } break;
-    case '[':
-    {
-      // TODO
-      return descriptor;
-    } break;
-    default:
-    {
-      printf("Failed to parse parameter type. Rest of signature TODO");
-      assert(0);
-    }
-    }
+  while (src.bytes[offset] != ')') {
+    JavaType param_type;
+
+    String substring = (String) {.length = src.length-offset, .bytes=src.bytes+offset};
+    offset += JavaType::parse_single(substring, &param_type);
+    descriptor.parameter_types.push(param_type);
   }
 
   assert(src.bytes[offset] == ')');
@@ -81,15 +55,15 @@ method_descriptor parse_method_descriptor(String src) {
   switch(src.bytes[offset]) {
   case 'V':
   {
-    descriptor.return_type = void_t;
+    descriptor.return_type = (JavaType) { void_t };
   } break;
   case 'I':
   {
-    descriptor.return_type = (return_descriptor) int_t;
+    descriptor.return_type = (JavaType) { int_t };
   } break;
   case 'D':
   {
-    descriptor.return_type = (return_descriptor) double_t;
+    descriptor.return_type = (JavaType) { double_t };
   } break;
   default:
   {
@@ -165,7 +139,7 @@ Class *Class_from_class_file(ClassLoader class_loader, ClassFile *class_file) {
     if (field.access_flags & FIELD_ACC_STATIC) {
       // TODO: Handle static field
     } else {
-      primitive_type field_type = parse_primitive_type(
+      JavaType field_type = JavaType::parse(
           (String) {
             .length = field.descriptor->length,
             .bytes = (char *)field.descriptor->bytes,

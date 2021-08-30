@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "Vector.h"
+#include "string.h"
 
 /* NOTE(Noah):
  * Multiple byte values in java class files are always stored in _big-endian order_
@@ -206,19 +207,71 @@ struct method_info {
     /* attribute_info attributes[attributes_count]; */
 };
 
-enum primitive_type {
-  int_t = 1,
+enum JavaTypeKind {
+  int_t,
   double_t,
+  string_t,
+  void_t,
+  array_t,
+  object_t
 };
 
-enum return_descriptor {
-  void_t = 0,
-  // ... primitive_type
+struct JavaType {
+  JavaTypeKind kind;
+
+  union {
+    JavaType *nested_type;
+    String class_name;
+  };
+
+  static JavaType parse(String src) { // TODO: Use parse single
+    switch (*src.bytes) {
+      case 'I': return (JavaType) { int_t };
+      case 'D': return (JavaType) { double_t };
+      default:
+      {
+        assert(0);
+      }
+    }
+  }
+
+  // Parse a single type and return how many chars were consumed
+  static u32 parse_single(String src, JavaType *out_parsed_type) {
+    switch (*src.bytes) {
+      case 'I': *out_parsed_type = (JavaType) { int_t }; return 1;
+      case 'D': *out_parsed_type = (JavaType) { double_t }; return 1;
+      case 'S': *out_parsed_type = (JavaType) { string_t }; return 1;
+      case '[':
+      {
+        *out_parsed_type = (JavaType) { array_t };
+
+        JavaType *inner_type = (JavaType *)malloc(sizeof(JavaType));
+        String substring = (String) { .length = src.length-1, .bytes = src.bytes+1 };
+        int consumed = parse_single(substring, inner_type);
+        out_parsed_type->nested_type = inner_type;
+
+        return consumed + 1;
+      };
+      case 'L':
+      {
+        *out_parsed_type = (JavaType) { object_t };
+        u32 length = 0;
+        for (length = 0; src.bytes[1 + length] != ';'; length++) { }
+
+        out_parsed_type->class_name = (String) { length, src.bytes + 1 };
+        return 1 /* 'L' */ + length + 1 /* ';' */;
+      }
+      default:
+      {
+        assert(0);
+      }
+    }
+  }
 };
 
 struct method_descriptor {
-  Vector<primitive_type> parameter_types;
-  return_descriptor return_type;
+  Vector<JavaType> parameter_types;
+  JavaType return_type;
 };
 
 struct field_info {

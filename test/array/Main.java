@@ -1,4 +1,4 @@
-class Array {
+class Main {
   public static void main(String[] args) {
     int[] list = {1, 2, 3};
     fn(list);

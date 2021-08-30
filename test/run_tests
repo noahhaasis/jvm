@@ -19,6 +19,7 @@ do
       echo -e "\e[31mTest \"$TestDir\" failed!"
       AllTestsSucceeded="0"
     else
+      echo -e "\e[32m$TestDir"
       rm test_output
     fi
     rm *.class

@@ -1,5 +1,4 @@
-#ifndef HashMap_H
-#define HashMap_H
+#pragma once
 
 #include "string.h"
 #include "stdlib.h"
@@ -103,5 +102,3 @@ private:
   // Use a stretchy buffer instead of a linked list?
   // And then maybe split the hashes into a seperate buffer (data-oriented design)
 };
-
-#endif

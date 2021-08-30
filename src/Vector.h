@@ -1,5 +1,4 @@
-#ifndef VECTOR_H
-#define VECTOR_H
+#pragma once
 
 #include "common.h"
 #include <stdlib.h>
@@ -57,5 +56,3 @@ private:
 
   static u32 constexpr VECTOR_INITIAL_CAPACITY = 8;
 };
-
-#endif
