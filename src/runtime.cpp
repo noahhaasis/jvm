@@ -122,7 +122,7 @@ Class *load_class_from_constant_pool(ClassLoader class_loader, cp_info *constant
   return cls;
 }
 
-FieldInfo *find_instance_field(Class *cls, String fieldname)
+FieldInfo *lookup_instance_field(Class *cls, String fieldname)
 {
   Class *current_class = cls;
   // Walk up the inheritance hierarchy to find the field
@@ -130,6 +130,18 @@ FieldInfo *find_instance_field(Class *cls, String fieldname)
     FieldInfo *info = current_class->instance_field_map->get(fieldname);
     if (info) {
       return info;
+    }
+    current_class = current_class->super_class;
+  }
+  return NULL;
+}
+
+Method *lookup_method(Class *cls, String methodname) {
+  Class *current_class = cls;
+  while (current_class) {
+    Method *method = current_class->method_map->get(methodname);
+    if (method) {
+      return method;
     }
     current_class = current_class->super_class;
   }
@@ -684,7 +696,7 @@ do_getfield:
 
     Utf8Info *fieldname = f.constant_pool[index-1].as.fieldref_info.name_and_type->name;
 
-    FieldInfo *field_info = find_instance_field(this_ptr->cls,
+    FieldInfo *field_info = lookup_instance_field(this_ptr->cls,
         (String) {
           .length = fieldname->length,
           .bytes = (char *)fieldname->bytes,
@@ -703,7 +715,7 @@ do_putfield:
 
     Utf8Info *fieldname = f.constant_pool[index-1].as.fieldref_info.name_and_type->name;
 
-    FieldInfo *field_info = find_instance_field(this_ptr->cls,
+    FieldInfo *field_info = lookup_instance_field(this_ptr->cls,
         (String) {
           .length = fieldname->length,
           .bytes = (char *)fieldname->bytes,
@@ -733,7 +745,7 @@ do_invokevirtual:
 
     // Get the method
     Utf8Info *method_name = methodref.name_and_type->name;
-    Method *method = cls->method_map->get(
+    Method *method = lookup_method(cls,
         (String) {
           .length = method_name->length,
           .bytes = (char *)method_name->bytes,
