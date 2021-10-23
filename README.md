@@ -3,7 +3,7 @@
 `./build/build.sh`
 
 ## Test
-`./bin/main test/Main.class`
+`cd test && ./run_tests`
 
 ## Small snippet of code that is supported
 

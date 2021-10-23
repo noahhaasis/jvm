@@ -29,5 +29,5 @@ done
 
 if [ "$AllTestsSucceeded" == "1" ]
 then
-  echo -e "\e[32mAll tests run successfully!"
+  echo -e "\e[32mAll tests ran successfully!"
 fi

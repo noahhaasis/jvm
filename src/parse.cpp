@@ -253,9 +253,23 @@ cp_info parse_cp_info(cp_info *constant_pool, u8 *data, int *out_byte_size /* Ho
     info.as.integer_value = __builtin_bswap32(*((u32 *)(data + 1)));
     *out_byte_size = 5;
   } break;
+  case CONSTANT_InvokeDynamic:
+  {
+    info.as.invoke_dynamic_info.bootstrap_method_attr_index = __builtin_bswap16(*((u16 *)(data + 1)));
+    u16 name_and_type_index = __builtin_bswap16(*((u16 *)(data + 3)));
+    info.as.invoke_dynamic_info.name_and_type = &constant_pool[name_and_type_index-1].as.name_and_type_info;
+    *out_byte_size = 5;
+  } break;
+  case CONSTANT_MethodHandle:
+  {
+    info.as.method_handle_info.reference_kind = *(data + 1);
+    info.as.method_handle_info.reference_index = *((u16 *)data + 2);
+    *out_byte_size = 4;
+  } break;
   default:
   {
-    // printf("Unhandled cp_info type %u\n", info.tag);
+    printf("Unhandled cp_info type %u\n", info.tag);
+    assert(false);
   }
   }
   return info;
@@ -269,81 +283,80 @@ ClassFile *parse_class_file(char *filename) {
   struct stat stat;
   fstat(fd, &stat);
 
-  u8* data = (u8 *)mmap(0, stat.st_size, PROT_READ, MAP_SHARED, fd, 0);
+  u8* data_start = (u8 *)mmap(0, stat.st_size, PROT_READ, MAP_SHARED, fd, 0);
+  u8* data = data_start;
 
   ClassFile *class_file = (ClassFile *)malloc(sizeof(ClassFile));
 
-  class_file->magic               = __builtin_bswap32(((u32 *)data)[0]);
-  class_file->minor_version       = __builtin_bswap16(((u16 *)data)[2]);
-  class_file->major_version       = __builtin_bswap16(((u16 *)data)[3]);
-  class_file->constant_pool_count = __builtin_bswap16(((u16 *)data)[4]);
+  class_file->magic               = __builtin_bswap32(*((u32 *)data)); data += 4;
+  class_file->minor_version       = __builtin_bswap16(*((u16 *)data)); data += 2;
+  class_file->major_version       = __builtin_bswap16(*((u16 *)data)); data += 2;
+  class_file->constant_pool_count = __builtin_bswap16(*((u16 *)data)); data += 2;
 
   class_file->constant_pool = (cp_info *)malloc(sizeof(cp_info)*(class_file->constant_pool_count-1));
   int byte_size = 0;
-  int data_index = 10; // Skip what we already parsed
   for (int i = 0; i < class_file->constant_pool_count-1; i++) {
-    class_file->constant_pool[i] = parse_cp_info(class_file->constant_pool, data + data_index, &byte_size);
+    class_file->constant_pool[i] = parse_cp_info(class_file->constant_pool, data, &byte_size);
     if (class_file->constant_pool[i].tag == CONSTANT_Long
         || class_file->constant_pool[i].tag == CONSTANT_Double) {
       // NOTE(Noah): Indexing is still right. We just have a uninitialized field
       i+=1; // Long and Double constants take up 8 bytes and 2 slots in the constant table
       // TODO(Noah): Maybe initialize the field to something that tells us "this slot is not used"
     }
-    data_index += byte_size;
+    data += byte_size;
   }
 
-  class_file->access_flags = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
-  class_file->this_class = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
-  class_file->super_class = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
-  class_file->interfaces_count = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
+  class_file->access_flags = __builtin_bswap16(*((u16 *)(data))); data += 2;
+  class_file->this_class = __builtin_bswap16(*((u16 *)(data))); data += 2;
+  class_file->super_class = __builtin_bswap16(*((u16 *)(data))); data += 2;
+  class_file->interfaces_count = __builtin_bswap16(*((u16 *)(data))); data += 2;
   if (class_file->interfaces_count > 0) {
     class_file->interfaces = (u16 *)malloc(class_file->interfaces_count * sizeof(u16));
     // TODO(Noah): This doesn't work because we have to convert the endianness
-    memcpy(class_file->interfaces, data + data_index, class_file->interfaces_count * sizeof(u16));
-    data_index += class_file->interfaces_count * sizeof(u16);
+    memcpy(class_file->interfaces, data, class_file->interfaces_count * sizeof(u16));
+    data += class_file->interfaces_count * sizeof(u16);
   } else {
     class_file->interfaces = NULL;
   }
-  class_file->fields_count = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
-  // TODO: The field parsing is already wrong
+  class_file->fields_count = __builtin_bswap16(*((u16 *)data)); data += 2;
   if (class_file->fields_count > 0) {
     class_file->fields = (field_info *)malloc(class_file->fields_count * sizeof(field_info));
     for (int i = 0; i < class_file->fields_count; i++) {
       int field_info_size = 0;
-      class_file->fields[i] = parse_field_info(class_file, data+data_index, &field_info_size);
-      data_index += field_info_size;
+      class_file->fields[i] = parse_field_info(class_file, data, &field_info_size);
+      data += field_info_size;
     }
   } else {
     class_file->fields = NULL;
   }
 
-  class_file->methods_count = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
+  class_file->methods_count = __builtin_bswap16(*((u16 *)(data))); data += 2;
   if (class_file->methods_count == 0) {
     class_file->methods = NULL;
   } else {
     class_file->methods = (method_info *)malloc(sizeof(method_info) * class_file->methods_count);
     for (int i = 0; i < class_file->methods_count; i++) {
       int method_info_size = 0;
-      class_file->methods[i] = parse_method_info(class_file, data+data_index, &method_info_size);
-      data_index += method_info_size;
+      class_file->methods[i] = parse_method_info(class_file, data, &method_info_size);
+      data += method_info_size;
     }
   }
 
-  class_file->attributes_count = __builtin_bswap16(*((u16 *)(data + data_index))); data_index += 2;
+  class_file->attributes_count = __builtin_bswap16(*((u16 *)(data))); data += 2;
   if (class_file->attributes_count == 0) {
     class_file->attributes = NULL;
   } else {
     class_file->attributes = (attribute_info *)malloc(sizeof(attribute_info) * class_file->attributes_count);
     for (int i = 0; i < class_file->attributes_count; i++) {
       int attribute_info_size = 0;
-      class_file->attributes[i] = parse_attribute_info(class_file, data+data_index, &attribute_info_size);
-      data_index += attribute_info_size;
+      class_file->attributes[i] = parse_attribute_info(class_file, data, &attribute_info_size);
+      data += attribute_info_size;
     }
   }
 
-  assert(data_index == stat.st_size); // bytes read == file size
+  assert((data - data_start) == stat.st_size); // bytes read == file size
 
-  munmap(data, stat.st_size);
+  munmap(data_start, stat.st_size);
   close(fd); // close after the mmap?
   
   return class_file;

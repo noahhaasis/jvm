@@ -56,23 +56,17 @@ method_descriptor parse_method_descriptor(String src) {
   case 'V':
   {
     descriptor.return_type = (JavaType) { void_t };
-  } break;
-  case 'I':
-  {
-    descriptor.return_type = (JavaType) { int_t };
-  } break;
-  case 'D':
-  {
-    descriptor.return_type = (JavaType) { double_t };
+    offset += 1;
   } break;
   default:
   {
-      // printf("Failed to parse return type. Rest of signature TODO");
-      assert(0);
+    JavaType return_type;
+    String substring = (String) {.length = src.length-offset, .bytes=src.bytes+offset};
+    offset += JavaType::parse_single(substring, &descriptor.return_type);
   }
   }
 
-  assert((offset + 1) == src.length);
+  assert(offset == src.length);
 
   return descriptor;
 }
